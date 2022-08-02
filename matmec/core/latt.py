@@ -527,7 +527,7 @@ class Latt:
         self.pbc()
         if element is not None:
             if isinstance(element, str):
-                eleMask = self.elements == 'Ga'
+                eleMask = self.elements == element
             elif isinstance(element, (tuple, list, np.ndarray)):
                 eleMask = [ ele in element for ele in self.elements ]
             eleIndexes = np.where(eleMask)[0]
