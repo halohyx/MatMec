@@ -513,7 +513,6 @@ class Latt:
                 for j in velocitylist[3*i:3*i+3]:
                     s += '%.10f\t' % j
                 s += '\n'
-
         with open(file, 'w+') as f:
             f.write(s)
         
@@ -598,10 +597,9 @@ class Latt:
         newposlist = self.poslist.copy()
         zlist = self.poslist[:, 2]
         move_indexes = np.where((lowlimit<zlist) == (zlist<highlimit))
-        newposlist += final_DirectionVec
+        newposlist[move_indexes] += final_DirectionVec
         self.poslist = newposlist
         self.pbc()
-
 
     def uniaxial_tensile(self, Direction: int, start_elongation: float, end_elongation: float, steps: int, relax:bool =True):
         '''
