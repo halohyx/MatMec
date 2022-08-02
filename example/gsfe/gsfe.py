@@ -24,9 +24,9 @@ machine_json_txt='''
         "context_type": "DpCloudServerContext",
         "local_root" : "./",
         "remote_profile":{
-          "email": "yixuanhu97@sjtu.edu.cn",
-          "password": "19971012tt@",
-          "program_id": 10187,
+          "email": "your email adress",
+          "password": "passwd",
+          "program_id": ,
             "input_data":{
               "api_version":2,
               "job_type": "indicate",
