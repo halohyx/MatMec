@@ -4,6 +4,7 @@ import os
 import numpy as np
 from .cell import Cell
 from .atom import Atom, UPPDATE_ITEM
+import copy
 from matmec.tool.latt_tool import get_distances, complete_arr, get_diff_index, \
                                 periodic_table, check_formula, get_formula, \
                                 get_elements_list_fromformula, get_elements_list_from_poscarString,\
@@ -226,7 +227,7 @@ class Latt:
 
     # @latt_property: propdict
     def _get_propdict_value(self, name):
-        return self.propdict.get(name)
+        return copy.deepcopy(self.propdict.get(name))
     def _set_propdict(self, name, value=None):
         if name in atoms_propdict:
             self._update_atom_propdict(name)
@@ -285,8 +286,8 @@ class Latt:
         else:
             modify_index = get_diff_index(self._get_propdict_value(name), newarr)
             print(self.propdict)
-            print(modify_index)
             self._set_part_atom_propdict(name, newarr[modify_index], modify_index)
+            print(self.propdict)
 
     def _set_part_atom_propdict(self, name, value, modify_index):
         '''
