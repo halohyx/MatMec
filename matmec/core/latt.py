@@ -284,6 +284,8 @@ class Latt:
                 self._set_part_atom_propdict(name, newarr[modify_index], modify_index)
         else:
             modify_index = get_diff_index(self._get_propdict_value(name), newarr)
+            print(self.propdict)
+            print(modify_index)
             self._set_part_atom_propdict(name, newarr[modify_index], modify_index)
 
     def _set_part_atom_propdict(self, name, value, modify_index):
@@ -316,6 +318,7 @@ class Latt:
     def _get_fix(self):
         return self._atom_prop_getter('fix')
     def _set_fix(self, newfix):
+        print(newfix)
         self._atom_prop_setter('fix', newfix)
     fix = property(_get_fix, _set_fix, doc='Fix list of this Latt')
 
@@ -557,7 +560,7 @@ class Latt:
         fixlist = self.fix
         if element is not None:
             if isinstance(element, str):
-                eleMask = self.elements == 'Ga'
+                eleMask = self.elements == element
             elif isinstance(element, (tuple, list, np.ndarray)):
                 eleMask = [ ele in element for ele in self.elements ]
             eleIndexes = np.where(eleMask)[0]

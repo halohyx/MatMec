@@ -283,7 +283,7 @@ def get_poslist_from_poscarstring(isSelectiveDynamic: bool, posString: str):
     the relative postions and fix according to this line
     '''
     assert(isinstance(posString, str)), 'The posliststring should be of str type.'
-    temp = posString.strip().split()[:3]
+    temp = posString.strip().split()
     if isSelectiveDynamic:
         if len(temp) > 5:
             pos = np.array(temp[:3], dtype=float)
@@ -305,10 +305,10 @@ def get_fix_from_string(fixString: list=None, fix: list=None, inverse=False):
     if not inverse:
         fixlist = np.array([], dtype=bool)
         for i in fixString:
-            if i in ['T', 't', 'True', '.True.']:
-                fixlist.append(True)
-            elif i in ['F', 'f', 'False', '.False.']:
-                fixlist.append(False)
+            if i in ['T', 't', 'True', '.True.', ".TRUE."]:
+                fixlist = np.append(fixlist, True)
+            elif i in ['F', 'f', 'False', '.False.', '.FALSE.']:
+                fixlist = np.append(fixlist, False)
         return fixlist
     else:
         s = ' '
