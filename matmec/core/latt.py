@@ -317,7 +317,6 @@ class Latt:
     def _get_fix(self):
         return self._atom_prop_getter('fix')
     def _set_fix(self, newfix):
-        print(newfix)
         self._atom_prop_setter('fix', newfix)
     fix = property(_get_fix, _set_fix, doc='Fix list of this Latt')
 
