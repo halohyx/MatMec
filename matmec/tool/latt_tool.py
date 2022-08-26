@@ -165,7 +165,8 @@ def check_formula(formula_name: str) -> dict:
                     else:
                         continue
                 else:
-                    numbers_after_ele = get_numbers_instr(formula_name, j+1)
+                    numbers_after_ele = get_numbers_instr(formula_name, j)
+                    print(numbers_after_ele)
                     if numbers_after_ele == 0:
                         formula['%s' % formula_name[j]] = 1
                         continue
