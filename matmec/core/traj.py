@@ -1,9 +1,4 @@
 import copy
-from enum import Flag
-from multiprocessing.sharedctypes import Value
-from pickle import FALSE
-from time import time
-from xml.dom.minidom import Element
 from matmec.utils import reader, writer
 from matmec.core import Latt, Cell
 from matmec.tool.latt_tool import periodic_table, get_elements_list_from_poscarString, \
@@ -12,7 +7,50 @@ import numpy as np
 
 traj_prop = ['cell', "timestep", "timeseries", "poslist", "nframes", "elements", "comment", "prop_dict", "formula"]
 
-
+class hklvector:
+    """
+    A helper class to conviently give a direction vector, either directly give or using hkl
+    Args:
+        hkl: can either be int or str indicating three int numbers; or can be directly the \
+            vectors given by list or np.ndarray, the length should be 3
+        cell: only useful when using hkl to define the vector. can be of one Cell object or \
+            a list of Cell objects
+        return: a single vector. when using hkl to define the vectors, it returns a list of 
+            vectors (use each cell.lattvec with same hkl to define vectors)
+    """
+    def __new__(self, hkl, cell: Cell=None):
+        if isinstance(hkl, int): hkl=str(hkl)
+        if isinstance(hkl, str) and cell is not None:
+            hkl_list = self.get_numbers_fromstr(hkl)
+            if len(hkl_list) != 3:
+                raise ValueError('Invalid input!')
+            if isinstance(cell, Cell):
+                hkl_vector = hkl_list[0]*cell.lattvec[0]+hkl_list[1]*cell.lattvec[1]+hkl_list[2]*cell.lattvec[2]
+            elif isinstance(cell, (list, np.ndarray)):
+                hkl_vector = np.array([ hkl_list[0]*c.lattvec[0]+hkl_list[1]*c.lattvec[1]+hkl_list[2]*c.lattvec[2] for c in cell ])
+        elif isinstance(hkl, str) and cell is None:
+            raise ValueError("If you use hkl to define the vector, pls provide the cell")
+        elif isinstance(hkl, (list, np.ndarray)):
+            if len(hkl) != 3:
+                raise ValueError('Invalid input!')
+            hkl_vector = np.array(hkl, dtype=float)
+        return hkl_vector
+    
+    @staticmethod
+    def get_numbers_fromstr(number):
+        if isinstance(number, int): number = str(number)
+        number_list = []
+        index = 0
+        while index < len(number):
+            if 48 <= ord(number[index]) <=57:
+                number_list.append(number[index])
+                index += 1
+            elif number[index] == "-":
+                number_list.append(int("-%s" % number[index+1]))
+                index += 2
+            else:
+                raise ValueError('Invalid input!')
+        return np.array(number_list, dtype=int)
 
 class Traj:
     '''
@@ -66,6 +104,15 @@ class Traj:
                 raise ValueError("pls provide the correct form of cell")
     cell = property(_get_cell, _set_cell, doc='The cell that frames belongs to')
     
+    # @Traj_property: cellarray
+    def _get_cellarray(self):
+        if self.__variedCell:
+            cellarray = [ cell.scale*cell.lattvec for cell in self.cell ]
+        else:
+            cellarray = np.array(self.cell.scale*self.cell.lattvec).reshape(1, 3, 3)
+        return np.array(cellarray, dtype=float)
+    cellarray = property(_get_cellarray, doc="The arrays of cell lattice vectors")
+
     # @Traj_property: poslist
     def _get_poslist(self):
         return self._get_propdict_value('poslist')
@@ -218,7 +265,7 @@ class Traj:
 
 
     # @Traj_method: periodic boundary condition
-    def pbc(self):
+    def _pbc(self):
         '''
         Apply boundary condition in 3 diretions
         '''
@@ -282,6 +329,9 @@ class Traj:
             if len(celllist) == 1 and len(poslist) != 1:
                 celllist = celllist[0]
                 poslist = poslist[0::skipEvery]
+            if len(celllist) == 1 and len(poslist) == 1:
+                celllist = celllist[0]
+                poslist = [poslist[0]]
             elif len(celllist) != 1 and len(celllist) == len(poslist):
                 celllist = np.array(celllist[0::skipEvery], dtype=Cell)
                 poslist = np.array(poslist[0::skipEvery], dtype=float)
@@ -292,4 +342,48 @@ class Traj:
                           isDirect=_isDirect)
             return self.__repr__()
 
-    
+    # Traj_method: projection on some 2D plane
+    def projection(self, ob_direc, x_direc):
+        r"""
+        Project the coordinates on a given lattice plane
+        Parameters: 
+        ob_direc: the normal vector of the projection lattice plane, \
+            can be given in the tradition of hkl in str: "hkl" or int number: hkl\
+            or a real vector
+
+        x_direc: the X direction of the projection lattice plane, \
+            should be given in the tradition of hkl in str: "hkl" or \
+            int number: hkl, and notice that this x_direct \
+            vector should be perpendicular of ob_direct. Thus, the 3rd basis \
+            vector of the camera coordinate is then defined as the cross of \
+            ob_direc and x_direc, and all of them will then be normalized.
+        
+        return: the 2D cartesian coordinates on the projection plane
+        """
+        ob_direc = hklvector(ob_direc, self.cell)
+        x_direc = hklvector(x_direc, self.cell)
+
+        if np.abs(np.sum(np.dot(ob_direc, x_direc.T))) > 1E-4:
+            raise ValueError("The x_direc vector doesnt lie on the normal plane of ob_direc")
+
+        # the 3rd vector comes from the cross of the given two vectors
+        y_direc = np.cross(x_direc, ob_direc)
+
+        # normalize x,y and ob_direc
+        if len(ob_direc.shape) == 1:
+            ob_direc = ob_direc/np.linalg.norm(ob_direc)
+            x_direc = x_direc/np.linalg.norm(x_direc)
+            y_direc = y_direc/np.linalg.norm(y_direc)
+            camera_coord = np.array([x_direc, y_direc, ob_direc])
+        else:
+            ob_direc = ob_direc/np.linalg.norm(ob_direc, axis=1)
+            x_direc = x_direc/np.linalg.norm(x_direc, axis=1)
+            y_direc = y_direc/np.linalg.norm(y_direc, axis=1)
+            camera_coord = np.array([[x_direc[i], y_direc[i], ob_direc[i]] for i in range(len(ob_direc))])
+        # the transform_tensor will be the original basis vector multiplied by the inverse of camera_coord
+        transform_tensor = np.matmul(self.cellarray, np.linalg.inv(camera_coord))
+        self.set_direct(False)
+        # the coordinates on the projection plane
+        newcoordinates = np.matmul(self.poslist, transform_tensor)[:, :, :2]
+        return newcoordinates
+        

@@ -358,12 +358,12 @@ class Latt:
     # method to change the direct and cartesian coordinate
     def __CtoD(self):
         assert(self.cell is not None), 'cell should be defined ahead of changing coordinate type'
-        transfromMattrix = np.linalg.inv(self.cell.lattvec*self.cell.scale)
-        self.poslist = np.matmul(np.array(self.poslist), transfromMattrix)
+        transformMattrix = np.linalg.inv(self.cell.lattvec*self.cell.scale)
+        self.poslist = np.matmul(np.array(self.poslist), transformMattrix)
     def __DtoC(self):
         assert(self.cell is not None), 'cell should be defined ahead of changing coordinate type'
-        transfromMattrix = self.cell.lattvec*self.cell.scale
-        self.poslist = np.matmul(np.array(self.poslist), transfromMattrix)
+        transformMattrix = self.cell.lattvec*self.cell.scale
+        self.poslist = np.matmul(np.array(self.poslist), transformMattrix)
 
     def __repr__(self) -> str:
         s = ''
