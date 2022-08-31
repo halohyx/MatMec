@@ -177,7 +177,7 @@ class Traj:
 
     # @Traj_property: timestep
     def _get_timestep(self):
-        self._get_propdict_value('timestep')
+        return self._get_propdict_value('timestep')
     def _set_timestep(self, timestep):
         try:
             timestep = float(timestep)
@@ -188,7 +188,7 @@ class Traj:
 
     # @Traj_property: timeseries
     def _get_timeseries(self):
-        self._get_propdict_value('timeseries')
+        return self._get_propdict_value('timeseries')
     def _set_timeseries(self, timeseries):
         if timeseries is None:
             timeseries = np.arange(self.nframes)
@@ -329,7 +329,7 @@ class Traj:
             if len(celllist) == 1 and len(poslist) != 1:
                 celllist = celllist[0]
                 poslist = poslist[0::skipEvery]
-            if len(celllist) == 1 and len(poslist) == 1:
+            elif len(celllist) == 1 and len(poslist) == 1:
                 celllist = celllist[0]
                 poslist = [poslist[0]]
             elif len(celllist) != 1 and len(celllist) == len(poslist):
@@ -343,7 +343,7 @@ class Traj:
             return self.__repr__()
 
     # Traj_method: projection on some 2D plane
-    def projection(self, ob_direc, x_direc):
+    def get_projection(self, ob_direc, x_direc):
         r"""
         Project the coordinates on a given lattice plane
         Parameters: 
@@ -362,10 +362,6 @@ class Traj:
         """
         ob_direc = hklvector(ob_direc, self.cell)
         x_direc = hklvector(x_direc, self.cell)
-
-        if np.abs(np.sum(np.dot(ob_direc, x_direc.T))) > 1E-4:
-            raise ValueError("The x_direc vector doesnt lie on the normal plane of ob_direc")
-
         # the 3rd vector comes from the cross of the given two vectors
         y_direc = np.cross(x_direc, ob_direc)
 
@@ -373,17 +369,93 @@ class Traj:
         if len(ob_direc.shape) == 1:
             ob_direc = ob_direc/np.linalg.norm(ob_direc)
             x_direc = x_direc/np.linalg.norm(x_direc)
+            if np.abs(np.sum(np.dot(ob_direc, x_direc.T))) > 1E-4:
+                raise ValueError("The x_direc vector doesnt lie on the normal plane of ob_direc")
             y_direc = y_direc/np.linalg.norm(y_direc)
             camera_coord = np.array([x_direc, y_direc, ob_direc])
         else:
             ob_direc = ob_direc/np.linalg.norm(ob_direc, axis=1)
             x_direc = x_direc/np.linalg.norm(x_direc, axis=1)
+            if np.abs(np.sum(np.dot(ob_direc, x_direc.T))) > 1E-4:
+                raise ValueError("The x_direc vector doesnt lie on the normal plane of ob_direc")
             y_direc = y_direc/np.linalg.norm(y_direc, axis=1)
             camera_coord = np.array([[x_direc[i], y_direc[i], ob_direc[i]] for i in range(len(ob_direc))])
         # the transform_tensor will be the original basis vector multiplied by the inverse of camera_coord
-        transform_tensor = np.matmul(self.cellarray, np.linalg.inv(camera_coord))
+        # transform_tensor = np.matmul(self.cellarray, np.linalg.inv(camera_coord))
+        # the transform_tensor should be current_coordinate*np.linalg.inv(camera_coord), but in the case of 
+        # cartesian coordinates, the current_coordinate is unit matrix, so it changes to below
+        transform_tensor = np.linalg.inv(camera_coord)
         self.set_direct(False)
         # the coordinates on the projection plane
         newcoordinates = np.matmul(self.poslist, transform_tensor)[:, :, :2]
         return newcoordinates
         
+    # Traj_method: plotting projection
+    def plot_projection(self):
+        import matplotlib as mpl
+        import matplotlib.pyplot as plt
+        from matplotlib.gridspec import GridSpec
+
+        '''
+        For plotting the projection along the direction specified. The projection definition can be found in Traj.projection()
+        Parameters:
+            ob_direc: see Traj.projection(). Default: 100 (Hope in your cell the 100 are vertical to 001, otherwise error may rise!)
+            x_direc: see Traj.projection() Deafult: 001
+            style = style in matplotlib, call the plt.style.use(style)
+            cmap = colormap, can be of list of single colormap. A list of colormap will be applied on each element
+
+        '''
+        ob_direc = '110'
+        x_direc = '1-10'
+        style = 'dark_background'
+        cmap = 'BrBG'
+
+        default_cmap_list = ['winter','magma','cool', 'Blues', 'Greens', 'Oranges', 'Reds','cool', 'hyx1']
+
+        projection = a.projection(ob_direc, x_direc)
+        elements = list(set(a.elements))
+        num_of_cmap = len(elements)
+
+        plt.style.use(style)
+        if cmap is None:
+            cmap = default_cmap_list
+
+        if not isinstance(cmap, (str, mpl.colors.Colormap)):
+            raise ValueError('Pls provide correct type of cmap, could be of str or colormap type.')
+
+        fig = plt.figure(figsize=(15, 9))
+        gs = GridSpec(1, 15)
+
+        norm = mpl.colors.Normalize(vmin=a.timeseries[0]*a.timestep, vmax=a.timeseries[-1]*a.timestep)
+        c = np.arange(len(a.timeseries))/len(a.timeseries)
+
+        ax = fig.add_subplot(gs[:15-num_of_cmap])
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        font = {'family': 'serif', 'size': 14}
+        ax.set_ylim(30)
+        ax.set_xlabel("Distance, A", fontdict=font)
+        ax.set_ylabel("Distance, A", fontdict=font)
+
+        for index, ele in enumerate(set(a.elements)):
+            # for i in [273, 73, 65, 153, 74]:
+            whereEle = np.where(a.elements == ele)[0]
+            # for i in whereEle:
+            _c = c.repeat(len(whereEle)).ravel()
+            ax.scatter(projection[:, whereEle, 0], projection[:, whereEle, 1], s=70, c=_c, alpha=0.3, cmap=default_cmap_list[index], marker='o')
+
+        for i in range(num_of_cmap):
+            ax = fig.add_subplot(gs[15-num_of_cmap+i])
+            fig.subplots_adjust(wspace=0.2)
+            cbar = mpl.colorbar.Colorbar(ax, mpl.cm.ScalarMappable(cmap=default_cmap_list[i]), \
+                                        drawedges=False, ticklocation='left', \
+                                        orientation='vertical'\
+                                        )
+            if i == 0:
+                cbar.set_label('Time, 60 ps', loc='top', fontdict=font)
+            cbar.set_ticks([])
+            ax.set_xlabel(elements[i], fontdict=font)
+
+        # ax.set_ylabel(, loc='center')
