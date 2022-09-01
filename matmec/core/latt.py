@@ -533,7 +533,7 @@ class Latt:
             elif isinstance(element, (tuple, list, np.ndarray)):
                 eleMask = [ ele in element for ele in self.elements ]
             eleIndexes = np.where(eleMask)[0]
-            zlist = self.poslist(eleIndexes)[:, 2]
+            zlist = self.poslist[eleIndexes][:, 2]
         else:
             # if element is not assigned, use all atoms
             eleIndexes = np.arange(self.natom)
