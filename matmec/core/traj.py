@@ -3,6 +3,7 @@ from matmec.utils import reader, writer
 from matmec.core import Latt, Cell
 from matmec.tool.latt_tool import periodic_table, get_elements_list_from_poscarString, \
                                   get_formula
+from matmec.tool.mpl_tool import regular_ticks
 import numpy as np
 
 traj_prop = ['cell', "timestep", "timeseries", "poslist", "nframes", "elements", "comment", "prop_dict", "formula"]
@@ -391,71 +392,102 @@ class Traj:
         return newcoordinates
         
     # Traj_method: plotting projection
-    def plot_projection(self):
+    def plot_projection(self, ob_direc, x_direc, xlim=None, ylim=None, selected=None, name='projection', cmap=None, style='seaborn-v0_8'):
         import matplotlib as mpl
         import matplotlib.pyplot as plt
         from matplotlib.gridspec import GridSpec
+        import matplotlib.ticker as mticker
 
         '''
-        For plotting the projection along the direction specified. The projection definition can be found in Traj.projection()
+        For plotting the projection along the direction specified. The projection definition can be found in Traj.get_projection()
         Parameters:
-            ob_direc: see Traj.projection(). Default: 100 (Hope in your cell the 100 are vertical to 001, otherwise error may rise!)
-            x_direc: see Traj.projection() Deafult: 001
+            ob_direc: see Traj.get_projection(). Default: 100 (Hope in your cell the 100 are vertical to 001, otherwise error may rise!)
+            x_direc: see Traj.get_projection() Deafult: 001
             style = style in matplotlib, call the plt.style.use(style)
             cmap = colormap, can be of list of single colormap. A list of colormap will be applied on each element
 
         '''
-        ob_direc = '110'
-        x_direc = '1-10'
-        style = 'dark_background'
-        cmap = 'BrBG'
 
-        default_cmap_list = ['winter','magma','cool', 'Blues', 'Greens', 'Oranges', 'Reds','cool', 'hyx1']
+        default_cmap_list = ['winter', 'cool','magma','cool', 'Blues', 'Greens', 'Oranges', 'Reds','cool', 'hyx1']
 
-        projection = a.projection(ob_direc, x_direc)
-        elements = list(set(a.elements))
+        projection = self.get_projection(ob_direc, x_direc)
+        elements = np.unique(self.elements)
         num_of_cmap = len(elements)
 
-        plt.style.use(style)
         if cmap is None:
             cmap = default_cmap_list
 
-        if not isinstance(cmap, (str, mpl.colors.Colormap)):
+        if not isinstance(cmap, (str, mpl.colors.Colormap, list, np.ndarray)):
             raise ValueError('Pls provide correct type of cmap, could be of str or colormap type.')
 
         fig = plt.figure(figsize=(15, 9))
+        plt.style.use(style)
         gs = GridSpec(1, 15)
 
-        norm = mpl.colors.Normalize(vmin=a.timeseries[0]*a.timestep, vmax=a.timeseries[-1]*a.timestep)
-        c = np.arange(len(a.timeseries))/len(a.timeseries)
+        norm = mpl.colors.Normalize(vmin=self.timeseries[0]*self.timestep, vmax=self.timeseries[-1]*self.timestep)
+        c = np.arange(len(self.timeseries))/len(self.timeseries)
 
         ax = fig.add_subplot(gs[:15-num_of_cmap])
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        ax.spines['left'].set_visible(False)
-        ax.spines['bottom'].set_visible(False)
-        font = {'family': 'serif', 'size': 14}
-        ax.set_ylim(30)
-        ax.set_xlabel("Distance, A", fontdict=font)
-        ax.set_ylabel("Distance, A", fontdict=font)
 
-        for index, ele in enumerate(set(a.elements)):
-            # for i in [273, 73, 65, 153, 74]:
-            whereEle = np.where(a.elements == ele)[0]
-            # for i in whereEle:
-            _c = c.repeat(len(whereEle)).ravel()
-            ax.scatter(projection[:, whereEle, 0], projection[:, whereEle, 1], s=70, c=_c, alpha=0.3, cmap=default_cmap_list[index], marker='o')
+        if selected == None:
+            for index, ele in enumerate(np.unique(self.elements)):
+                # for i in [273, 73, 65, 153, 74]:
+                whereEle = np.where(self.elements == ele)[0]
+                # for i in whereEle:
+                _c = c.repeat(len(whereEle)).ravel()
+                ax.scatter(projection[:, whereEle, 0], projection[:, whereEle, 1], s=70, c=_c, alpha=0.5, cmap=default_cmap_list[index], marker='.')
+        else:
+            selected = np.array(selected)
+            elementslist = self.elements[selected]
+            selected_projection = projection[:, selected, :]
+            for index, ele in enumerate(np.unique(elementslist)):
+                num_of_cmap = len(np.unique(elementslist))
+                # for i in [273, 73, 65, 153, 74]:
+                whereEle = np.where(elementslist == ele)[0]
+                # for i in whereEle:
+                _c = c.repeat(len(whereEle)).ravel()
+                ax.scatter(selected_projection[:, whereEle, 0], selected_projection[:, whereEle, 1], s=70, c=_c, alpha=0.8, cmap=default_cmap_list[index], marker='.')
+
+        # set the properties of the plotting ax
+        # hide all spines, set facecolor black, turn of grid
+        # set fonts, set xlabel and ylabel and higher ylim
+        ax.spines[['right', 'top', 'left', 'bottom']].set_visible(False)
+        ax.set_facecolor('k')
+        ax.grid(False)
+        title_font = {'family': 'calibri', 'size': 16}
+        tickslabel_font = {'family': 'arial', 'size': 14}
+
+        ax.set_xlabel(r"$Distance\ (\AA)$", fontdict=title_font)
+        ax.set_ylabel(r"$Distance\ (\AA)$", fontdict=title_font)
+        print(ax.get_xticks())
+
+        # make the ticks increase from 0, from bottom to top, from left to right
+        regular_ticks(ax, 'x')
+        regular_ticks(ax, 'y')
+        if xlim is not None:
+            ax.set_xlim(xlim[0], xlim[1])
+        if ylim is not None:
+            ax.set_ylim(ylim[0], ylim[1])
 
         for i in range(num_of_cmap):
             ax = fig.add_subplot(gs[15-num_of_cmap+i])
-            fig.subplots_adjust(wspace=0.2)
-            cbar = mpl.colorbar.Colorbar(ax, mpl.cm.ScalarMappable(cmap=default_cmap_list[i]), \
-                                        drawedges=False, ticklocation='left', \
+            fig.subplots_adjust(wspace=0.1)
+            cbar = mpl.colorbar.Colorbar(ax, mpl.cm.ScalarMappable(cmap=default_cmap_list[i], norm=norm), \
+                                        ticklocation='right',\
                                         orientation='vertical'\
                                         )
-            if i == 0:
-                cbar.set_label('Time, 60 ps', loc='top', fontdict=font)
-            cbar.set_ticks([])
-            ax.set_xlabel(elements[i], fontdict=font)
-
-        # ax.set_ylabel(, loc='center')
+            # for the last colorbar, set the ticks
+            if i == num_of_cmap-1:
+                # cbar.set_label('Time, 60 ps', loc='top', fontdict=title_font)
+                yticks = cbar.get_ticks()
+                cbar.set_ticks(yticks[:-1], fontdict=title_font)
+                pass
+            # for the middle colorbar set the title
+            elif i == int(num_of_cmap/2):
+                tickslabel_font['size'] = 18
+                title = ax.set_title(r"$Time\ (fs)$", fontdict=tickslabel_font)
+                cbar.set_ticks([])
+            else:
+                cbar.set_ticks([])
+            ax.set_xlabel(elements[i], fontdict=title_font)
+        plt.savefig('%s.jpeg' % name)
