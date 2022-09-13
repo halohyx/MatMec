@@ -1,0 +1,2159 @@
+LAMMPS (23 Jun 2022)
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread. (src/comm.cpp:98)
+  using 1 OpenMP thread(s) per MPI task
+Loaded 1 plugins from /home/halohyx/app/anaconda3/envs/deepmd/lib/deepmd_lmp
+Loaded 0 plugins from 
+# prism slip
+variable        lattConst equal 3.252
+variable        ydisp equal ${lattConst}*sqrt(3)/2
+variable        ydisp equal 3.252*sqrt(3)/2
+variable        zlat equal 8
+variable        halfzlat equal ${zlat}/2
+variable        halfzlat equal 8/2
+variable        upperBound equal ${zlat}-0.5
+variable        upperBound equal 8-0.5
+variable        vacHigh equal zlat*1.3
+
+
+# ------------------- Simulation System -----------------------
+units           metal
+atom_style      atomic
+boundary        p p p
+neighbor        0.3 bin
+
+# ------------------- Lattice Definition -----------------------
+# always displace towards y direction
+# will have 3 groups, upper, lower and boundary, boundary will be fixed to avoid the
+# surface interaction
+lattice         bcc ${lattConst} orient x 1 1 -1 orient y 1 1 2 orient z 1 -1 0
+lattice         bcc 3.252 orient x 1 1 -1 orient y 1 1 2 orient z 1 -1 0
+Lattice spacing in x,y,z = 5.6326292 5.3104938 4.5990225
+
+region          atoms block 0 2 0 2 0 ${zlat} units lattice # the region of atoms
+region          atoms block 0 2 0 2 0 8 units lattice 
+create_box      3 atoms # 3 types of atoms
+Created orthogonal box = (0 0 0) to (11.265258 10.620988 36.79218)
+  1 by 1 by 4 MPI processor grid
+region          upper block INF INF INF INF ${halfzlat} ${zlat} units lattice
+region          upper block INF INF INF INF 4 ${zlat} units lattice
+region          upper block INF INF INF INF 4 8 units lattice
+region          upperbound block INF INF INF INF ${upperBound} INF units lattice
+region          upperbound block INF INF INF INF 7.5 INF units lattice
+region          lowerbound block INF INF INF INF INF 0.2 units lattice
+
+create_atoms    1 region atoms
+Created 249 atoms
+  using lattice units in orthogonal box = (0 0 0) to (11.265258 10.620988 36.79218)
+  create_atoms CPU = 0.001 seconds
+
+change_box      all z delta 0 15 units box # add vacuum layer 15 A
+Changing box ...
+  orthogonal box = (0 0 0) to (11.265258 10.620988 51.79218)
+
+group           atoms region atoms
+249 atoms in group atoms
+group           upper region upper
+124 atoms in group upper
+group           lower subtract atoms upper
+125 atoms in group lower
+group           mobile union upper lower
+249 atoms in group mobile
+group           upperbound region upperbound
+16 atoms in group upperbound
+group           lowerbound region lowerbound
+16 atoms in group lowerbound
+group           boundary union upperbound lowerbound
+32 atoms in group boundary
+
+set             group lower type 1
+Setting atom values ...
+  125 settings made for type
+set             group upper type 2
+Setting atom values ...
+  124 settings made for type
+set             group boundary type 3
+Setting atom values ...
+  32 settings made for type
+
+# ------------------- Potential Setting -----------------------
+# pair_style      eam/fs
+# pair_coeff      * * Zr_3.eam.fs Zr Zr Zr
+
+mass            1 47.867
+mass            2 47.867
+mass            3 47.867
+
+pair_style      eam/fs
+pair_coeff      * * /data/work/5-lammps_test/4-Ti/Ti.eam.fs Ti Ti Ti
+
+# write_data      data.init
+# jump            in.blank
+
+# calculate the E0 of current relaxed perfect configuration
+variable        A equal lx*ly*1E-20
+variable        ev2mJ equal 1.60217657E-16
+
+fix             1 mobile setforce 0 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Neighbor list info ...
+  update every 1 steps, delay 0 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 7.2
+  ghost atom cutoff = 7.2
+  binsize = 3.6, bins = 4 3 15
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair eam/fs, perpetual
+      attributes: half, newton on
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/3d
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 4.328 | 4.427 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+         0   0             -1274.3668      0             -1274.3668     -13115.079    
+        55   0             -1275.1465      0             -1275.1465     -9623.6307    
+Loop time of 0.0447212 on 4 procs for 55 steps with 249 atoms
+
+98.9% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1274.36682698301  -1275.14650113707  -1275.14650125606
+  Force two-norm initial, final = 1.9065172 0.0008554168
+  Force max component initial, final = 0.51551406 0.00024335658
+  Final line search alpha, max atom move = 1 0.00024335658
+  Iterations, force evaluations = 55 108
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.014254   | 0.029695   | 0.040317   |   6.3 | 66.40
+Neigh   | 3.69e-05   | 0.00040437 | 0.00066122 |   0.0 |  0.90
+Comm    | 0.00086946 | 0.0057838  | 0.017737   |   9.1 | 12.93
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 2.3605e-05 | 7.8928e-05 | 0.00011215 |   0.0 |  0.18
+Other   |            | 0.008759   |            |       | 19.59
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:            646 ave         905 max         499 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:         2500.5 ave        4108 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10002
+Ave neighs/atom = 40.168675
+Neighbor list builds = 3
+Dangerous builds = 0
+run             0
+WARNING: No fixes with time integration, atoms won't move (src/verlet.cpp:60)
+Per MPI rank memory allocation (min/avg/max) = 3.203 | 3.302 | 3.339 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+        55   0             -1275.1465      0             -1275.1465     -9623.6307    
+Loop time of 5.70992e-05 on 4 procs for 0 steps with 249 atoms
+
+58.2% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0          | 0          | 0          |   0.0 |  0.00
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0          | 0          | 0          |   0.0 |  0.00
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 0          | 0          | 0          |   0.0 |  0.00
+Other   |            | 5.71e-05   |            |       |100.00
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:            646 ave         905 max         499 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2502.75 ave        4121 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10011
+Ave neighs/atom = 40.204819
+Neighbor list builds = 0
+Dangerous builds = 0
+unfix           1
+unfix           2
+write_dump      all atom dump.0
+
+
+
+variable        E0_ equal pe
+variable        E0 equal ${E0_}
+variable        E0 equal -1275.14650125606
+variable        SFE equal (pe-${E0})/$A*${ev2mJ}
+variable        SFE equal (pe--1275.14650125606)/$A*${ev2mJ}
+variable        SFE equal (pe--1275.14650125606)/1.19648169485847e-18*${ev2mJ}
+variable        SFE equal (pe--1275.14650125606)/1.19648169485847e-18*1.60217657e-16
+
+print           "0,${SFE}" file gsfe
+0,4.56704992222663e-10
+
+# create a loop to calculate the following displacement
+variable        steps equal 30
+variable        disp equal ${ydisp}/${steps}
+variable        disp equal 2.81631461310699/${steps}
+variable        disp equal 2.81631461310699/30
+
+# start loop
+
+variable        i loop ${steps}
+variable        i loop 30
+label           loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 1/${steps} 
+variable        rdisp equal 1/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.328 | 4.427 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+        55   0             -1275.1778      0             -1275.1778     -9518.3605    
+       182   0             -1283.266       0             -1283.266       2885.254     
+Loop time of 0.130364 on 4 procs for 127 steps with 249 atoms
+
+91.8% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1275.17782216604  -1283.26596629436  -1283.26596640213
+  Force two-norm initial, final = 3.9162568 0.00090398648
+  Force max component initial, final = 0.88119685 0.00027076897
+  Final line search alpha, max atom move = 1 0.00027076897
+  Iterations, force evaluations = 127 247
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.047968   | 0.087482   | 0.11424    |   9.4 | 67.11
+Neigh   | 0.00017307 | 0.0019122  | 0.0031433  |   2.9 |  1.47
+Comm    | 0.0024609  | 0.015192   | 0.045472   |  14.3 | 11.65
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 4.0797e-05 | 0.00018624 | 0.00027303 |   0.0 |  0.14
+Other   |            | 0.02559    |            |       | 19.63
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:          656.5 ave         921 max         504 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:         2487.5 ave        4152 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 9950
+Ave neighs/atom = 39.959839
+Neighbor list builds = 14
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.1
+
+print           "${rdisp},${SFE}" append gsfe
+0.0333333333333333,-1087.25581627127
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 2/${steps} 
+variable        rdisp equal 2/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       182   0             -1283.2143      0             -1283.2143      2781.7201    
+       238   0             -1283.2598      0             -1283.2598      2862.3035    
+Loop time of 0.0525765 on 4 procs for 56 steps with 249 atoms
+
+98.5% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1283.21426163807  -1283.25982862172   -1283.2598287273
+  Force two-norm initial, final = 0.47626493 0.00093406127
+  Force max component initial, final = 0.12834949 0.00017042503
+  Final line search alpha, max atom move = 1 0.00017042503
+  Iterations, force evaluations = 56 112
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.015674   | 0.034168   | 0.046818   |   7.2 | 64.99
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00074613 | 0.0069319  | 0.020788   |   9.7 | 13.18
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.7883e-05 | 8.8854e-05 | 0.00012976 |   0.0 |  0.17
+Other   |            | 0.01139    |            |       | 21.66
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:          656.5 ave         921 max         504 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:           2487 ave        4148 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 9948
+Ave neighs/atom = 39.951807
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.2
+
+print           "${rdisp},${SFE}" append gsfe
+0.0666666666666667,-1086.43393668406
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 3/${steps} 
+variable        rdisp equal 3/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       238   0             -1283.2031      0             -1283.2031      2743.2362    
+       304   0             -1283.249       0             -1283.249       2871.1729    
+Loop time of 0.06061 on 4 procs for 66 steps with 249 atoms
+
+95.7% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+      -1283.2031284671   -1283.2490096468   -1283.2490097487
+  Force two-norm initial, final = 0.47858389 0.00089195772
+  Force max component initial, final = 0.12975988 0.00012708037
+  Final line search alpha, max atom move = 1 0.00012708037
+  Iterations, force evaluations = 66 132
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.018264   | 0.04011    | 0.054976   |   7.7 | 66.18
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00085377 | 0.0079201  | 0.024239   |  10.6 | 13.07
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 2.0739e-05 | 9.8738e-05 | 0.00014727 |   0.0 |  0.16
+Other   |            | 0.01248    |            |       | 20.59
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:          654.5 ave         916 max         506 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:           2489 ave        4156 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 9956
+Ave neighs/atom = 39.983936
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.3
+
+print           "${rdisp},${SFE}" append gsfe
+0.1,-1084.98519625719
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 4/${steps} 
+variable        rdisp equal 4/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       304   0             -1283.1874      0             -1283.1874      2739.3369    
+       388   0             -1283.2354      0             -1283.2354      3259.9628    
+Loop time of 0.0793187 on 4 procs for 84 steps with 249 atoms
+
+98.5% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+      -1283.1874106881   -1283.2353586504  -1283.23535876441
+  Force two-norm initial, final = 0.48137391 0.00083812617
+  Force max component initial, final = 0.13102437 0.00014382317
+  Final line search alpha, max atom move = 1 0.00014382317
+  Iterations, force evaluations = 84 168
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.023542   | 0.051583   | 0.071168   |   8.8 | 65.03
+Neigh   | 1.3752e-05 | 0.00013812 | 0.00022443 |   0.0 |  0.17
+Comm    | 0.0011579  | 0.010532   | 0.030931   |  11.6 | 13.28
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 2.6282e-05 | 0.00012518 | 0.00019127 |   0.0 |  0.16
+Other   |            | 0.01694    |            |       | 21.36
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:            654 ave         915 max         506 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:         2490.5 ave        4164 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 9962
+Ave neighs/atom = 40.008032
+Neighbor list builds = 1
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.4
+
+print           "${rdisp},${SFE}" append gsfe
+0.133333333333333,-1083.15722953693
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 5/${steps} 
+variable        rdisp equal 5/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       388   0             -1283.1706      0             -1283.1706      3117.5815    
+       439   0             -1283.2169      0             -1283.2169      3240.1765    
+Loop time of 0.0472953 on 4 procs for 51 steps with 249 atoms
+
+98.9% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1283.17055635583  -1283.21688905507  -1283.21688918329
+  Force two-norm initial, final = 0.48378357 0.00099276585
+  Force max component initial, final = 0.132926 0.00014984433
+  Final line search alpha, max atom move = 1 0.00014984433
+  Iterations, force evaluations = 51 102
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.014473   | 0.031288   | 0.042843   |   6.7 | 66.15
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00069746 | 0.0060667  | 0.018777   |   9.5 | 12.83
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.677e-05  | 9.2326e-05 | 0.00015737 |   0.0 |  0.20
+Other   |            | 0.009848   |            |       | 20.82
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:            657 ave         918 max         509 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:         2494.5 ave        4170 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 9978
+Ave neighs/atom = 40.072289
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.5
+
+print           "${rdisp},${SFE}" append gsfe
+0.166666666666667,-1080.68401743123
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 6/${steps} 
+variable        rdisp equal 6/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       439   0             -1283.147       0             -1283.147       3087.5811    
+       494   0             -1283.1938      0             -1283.1938      3200.33      
+Loop time of 0.0520317 on 4 procs for 55 steps with 249 atoms
+
+98.4% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1283.14702292632  -1283.19375251683  -1283.19375263505
+  Force two-norm initial, final = 0.48744803 0.00094371895
+  Force max component initial, final = 0.13440608 0.00016388333
+  Final line search alpha, max atom move = 1 0.00016388333
+  Iterations, force evaluations = 55 110
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.015559   | 0.034069   | 0.046579   |   7.2 | 65.48
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.0007576  | 0.0070286  | 0.020763   |   9.5 | 13.51
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.6422e-05 | 9.429e-05  | 0.00014843 |   0.0 |  0.18
+Other   |            | 0.01084    |            |       | 20.83
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:            653 ave         914 max         504 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:         2492.5 ave        4172 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 9970
+Ave neighs/atom = 40.040161
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.6
+
+print           "${rdisp},${SFE}" append gsfe
+0.2,-1077.58586426477
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 7/${steps} 
+variable        rdisp equal 7/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       494   0             -1283.1188      0             -1283.1188      3038.4236    
+       535   0             -1283.1659      0             -1283.1659      3140.2488    
+Loop time of 0.0411144 on 4 procs for 41 steps with 249 atoms
+
+97.0% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1283.11877748459  -1283.16592513883  -1283.16592526292
+  Force two-norm initial, final = 0.4912887 0.00091602839
+  Force max component initial, final = 0.1360011 0.00015552082
+  Final line search alpha, max atom move = 1 0.00015552082
+  Iterations, force evaluations = 41 82
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.011585   | 0.025471   | 0.035108   |   6.2 | 61.95
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.000529   | 0.0051189  | 0.015271   |   8.3 | 12.45
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.1799e-05 | 6.2567e-05 | 9.521e-05  |   0.0 |  0.15
+Other   |            | 0.01046    |            |       | 25.45
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:            657 ave         924 max         503 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2496.25 ave        4177 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 9985
+Ave neighs/atom = 40.100402
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.7
+
+print           "${rdisp},${SFE}" append gsfe
+0.233333333333333,-1073.85957544506
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 8/${steps} 
+variable        rdisp equal 8/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       535   0             -1283.0858      0             -1283.0858      2969.9119    
+       576   0             -1283.1334      0             -1283.1334      3066.6993    
+Loop time of 0.0681917 on 4 procs for 41 steps with 249 atoms
+
+88.9% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1283.08583013099  -1283.13339370463  -1283.13339381872
+  Force two-norm initial, final = 0.49518856 0.00090470142
+  Force max component initial, final = 0.13774792 0.00015978943
+  Final line search alpha, max atom move = 1 0.00015978943
+  Iterations, force evaluations = 41 82
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.023063   | 0.038958   | 0.053011   |   6.0 | 57.13
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00055897 | 0.006805   | 0.015963   |   7.3 |  9.98
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.4783e-05 | 7.1216e-05 | 0.00010908 |   0.0 |  0.10
+Other   |            | 0.02236    |            |       | 32.79
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:            657 ave         924 max         503 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:           2494 ave        4172 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 9976
+Ave neighs/atom = 40.064257
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.8
+
+print           "${rdisp},${SFE}" append gsfe
+0.266666666666667,-1069.50337694204
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 9/${steps} 
+variable        rdisp equal 9/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       576   0             -1283.0482      0             -1283.0482      2888.8012    
+       615   0             -1283.0961      0             -1283.0961      2978.8793    
+Loop time of 0.0413589 on 4 procs for 39 steps with 249 atoms
+
+93.6% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1283.04819813544  -1283.09614794532  -1283.09614804529
+  Force two-norm initial, final = 0.49911166 0.00090184806
+  Force max component initial, final = 0.13939418 0.00014197426
+  Final line search alpha, max atom move = 1 0.00014197426
+  Iterations, force evaluations = 39 78
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.011875   | 0.025658   | 0.035673   |   6.2 | 62.04
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00054063 | 0.0058807  | 0.015176   |   7.2 | 14.22
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.4723e-05 | 6.3088e-05 | 9.5856e-05 |   0.0 |  0.15
+Other   |            | 0.009757   |            |       | 23.59
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:          658.5 ave         927 max         503 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:           2495 ave        4172 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 9980
+Ave neighs/atom = 40.080321
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.9
+
+print           "${rdisp},${SFE}" append gsfe
+0.3,-1064.51589524569
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 10/${steps} 
+variable        rdisp equal 10/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       615   0             -1283.0059      0             -1283.0059      2794.1653    
+       653   0             -1283.0542      0             -1283.0542      2875.3771    
+Loop time of 0.0400624 on 4 procs for 38 steps with 249 atoms
+
+93.9% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1283.00586710432  -1283.05418462626  -1283.05418474654
+  Force two-norm initial, final = 0.50286659 0.00086949429
+  Force max component initial, final = 0.14097903 0.00012035185
+  Final line search alpha, max atom move = 1 0.00012035185
+  Iterations, force evaluations = 38 76
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.01254    | 0.026287   | 0.036192   |   6.0 | 65.62
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00049565 | 0.0054445  | 0.015764   |   8.2 | 13.59
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.153e-05  | 6.1887e-05 | 9.3207e-05 |   0.0 |  0.15
+Other   |            | 0.008269   |            |       | 20.64
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:          658.5 ave         927 max         503 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2496.25 ave        4173 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 9985
+Ave neighs/atom = 40.100402
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.10
+
+print           "${rdisp},${SFE}" append gsfe
+0.333333333333333,-1058.89670237887
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 11/${steps} 
+variable        rdisp equal 11/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       653   0             -1282.9589      0             -1282.9589      2684.2698    
+       692   0             -1283.0075      0             -1283.0075      2758.5115    
+Loop time of 0.0377233 on 4 procs for 39 steps with 249 atoms
+
+98.5% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1282.95885054727  -1283.00751245679  -1283.00751257719
+  Force two-norm initial, final = 0.50657367 0.00096694709
+  Force max component initial, final = 0.14236563 0.00016035347
+  Final line search alpha, max atom move = 1 0.00016035347
+  Iterations, force evaluations = 39 78
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.011054   | 0.024453   | 0.03351    |   6.1 | 64.82
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00053322 | 0.0048815  | 0.01482    |   8.3 | 12.94
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.2166e-05 | 7.1142e-05 | 0.00010952 |   0.0 |  0.19
+Other   |            | 0.008318   |            |       | 22.05
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:          657.5 ave         925 max         503 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2499.75 ave        4179 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 9999
+Ave neighs/atom = 40.156627
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.11
+
+print           "${rdisp},${SFE}" append gsfe
+0.366666666666667,-1052.64695726992
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 12/${steps} 
+variable        rdisp equal 12/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       692   0             -1282.9072      0             -1282.9072      2561.3312    
+       735   0             -1282.9562      0             -1282.9562      2626.2529    
+Loop time of 0.0431312 on 4 procs for 43 steps with 249 atoms
+
+95.4% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1282.90717096525  -1282.95615845535  -1282.95615856886
+  Force two-norm initial, final = 0.51024085 0.00092002618
+  Force max component initial, final = 0.14382126 0.00015823542
+  Final line search alpha, max atom move = 1 0.00015823542
+  Iterations, force evaluations = 43 86
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.013208   | 0.028064   | 0.038272   |   6.4 | 65.07
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00060837 | 0.0058399  | 0.016879   |   8.4 | 13.54
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.51e-05   | 7.3245e-05 | 0.00012578 |   0.0 |  0.17
+Other   |            | 0.009154   |            |       | 21.22
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:          658.5 ave         925 max         505 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2501.75 ave        4178 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10007
+Ave neighs/atom = 40.188755
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.12
+
+print           "${rdisp},${SFE}" append gsfe
+0.4,-1045.77027965109
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 13/${steps} 
+variable        rdisp equal 13/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       735   0             -1282.8509      0             -1282.8509      2423.3588    
+       794   0             -1282.9002      0             -1282.9002      2476.6917    
+Loop time of 0.0578224 on 4 procs for 59 steps with 249 atoms
+
+96.4% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1282.85088060123   -1282.9001762124  -1282.90017631892
+  Force two-norm initial, final = 0.5138997 0.00087610696
+  Force max component initial, final = 0.14512086 0.00013583876
+  Final line search alpha, max atom move = 1 0.00013583876
+  Iterations, force evaluations = 59 118
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.01685    | 0.037113   | 0.051539   |   7.6 | 64.18
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00078994 | 0.0075507  | 0.022297   |   9.9 | 13.06
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.7409e-05 | 8.8608e-05 | 0.00013686 |   0.0 |  0.15
+Other   |            | 0.01307    |            |       | 22.60
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         657.75 ave         922 max         508 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:         2505.5 ave        4192 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10022
+Ave neighs/atom = 40.248996
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.13
+
+print           "${rdisp},${SFE}" append gsfe
+0.433333333333333,-1038.27384660309
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 14/${steps} 
+variable        rdisp equal 14/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       794   0             -1282.79        0             -1282.79        2268.2745    
+       843   0             -1282.8397      0             -1282.8397      2316.1074    
+Loop time of 0.047385 on 4 procs for 49 steps with 249 atoms
+
+98.3% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1282.79004249301  -1282.83965095688  -1282.83965108284
+  Force two-norm initial, final = 0.5176555 0.0010486327
+  Force max component initial, final = 0.14625396 0.00016655386
+  Final line search alpha, max atom move = 1 0.00016655386
+  Iterations, force evaluations = 49 98
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.01412    | 0.03078    | 0.042425   |   6.8 | 64.96
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.0006355  | 0.0061267  | 0.018413   |   9.1 | 12.93
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.3916e-05 | 7.8117e-05 | 0.00013302 |   0.0 |  0.16
+Other   |            | 0.0104     |            |       | 21.95
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         659.25 ave         922 max         511 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2503.75 ave        4189 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10015
+Ave neighs/atom = 40.220884
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.14
+
+print           "${rdisp},${SFE}" append gsfe
+0.466666666666667,-1030.16907445678
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 15/${steps} 
+variable        rdisp equal 15/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       843   0             -1282.7248      0             -1282.7248      2102.2549    
+       905   0             -1282.7748      0             -1282.7748      2138.164     
+Loop time of 0.058092 on 4 procs for 62 steps with 249 atoms
+
+95.6% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1282.72484396388    -1282.774760096  -1282.77476020513
+  Force two-norm initial, final = 0.52165875 0.00086371838
+  Force max component initial, final = 0.14740281 0.0001855
+  Final line search alpha, max atom move = 1 0.0001855
+  Iterations, force evaluations = 62 124
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.017158   | 0.038145   | 0.052499   |   7.7 | 65.66
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00083846 | 0.0076572  | 0.023512   |  10.5 | 13.18
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.7026e-05 | 9.5173e-05 | 0.00013933 |   0.0 |  0.16
+Other   |            | 0.0122     |            |       | 20.99
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         659.25 ave         922 max         511 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2506.75 ave        4185 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10027
+Ave neighs/atom = 40.269076
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.15
+
+print           "${rdisp},${SFE}" append gsfe
+0.5,-1021.47971093959
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 16/${steps} 
+variable        rdisp equal 16/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       905   0             -1282.6556      0             -1282.6556      1919.0504    
+       970   0             -1282.706       0             -1282.706       1930.8414    
+Loop time of 0.061846 on 4 procs for 65 steps with 249 atoms
+
+97.1% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1282.65557283181  -1282.70597545197  -1282.70597557344
+  Force two-norm initial, final = 0.52607024 0.00095517175
+  Force max component initial, final = 0.14950916 0.0002259742
+  Final line search alpha, max atom move = 1 0.0002259742
+  Iterations, force evaluations = 65 130
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.018447   | 0.040666   | 0.056202   |   7.9 | 65.75
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00086123 | 0.0081697  | 0.02483    |  10.7 | 13.21
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.9515e-05 | 9.7266e-05 | 0.00014539 |   0.0 |  0.16
+Other   |            | 0.01291    |            |       | 20.88
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         656.75 ave         917 max         511 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2506.25 ave        4177 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10025
+Ave neighs/atom = 40.261044
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.16
+
+print           "${rdisp},${SFE}" append gsfe
+0.533333333333333,-1012.268945264
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 17/${steps} 
+variable        rdisp equal 17/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+       970   0             -1282.5838      0             -1282.5838      1704.9494    
+      1035   0             -1282.6338      0             -1282.6338      1700.1647    
+Loop time of 0.0616956 on 4 procs for 65 steps with 249 atoms
+
+97.1% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1282.58380796235  -1282.63382747489  -1282.63382759797
+  Force two-norm initial, final = 0.53559414 0.0009611014
+  Force max component initial, final = 0.15812706 0.00018086357
+  Final line search alpha, max atom move = 1 0.00018086357
+  Iterations, force evaluations = 65 130
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.018655   | 0.04073    | 0.056382   |   7.8 | 66.02
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.0009085  | 0.0080004  | 0.024368   |  10.6 | 12.97
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 2.0462e-05 | 0.00010047 | 0.00014811 |   0.0 |  0.16
+Other   |            | 0.01286    |            |       | 20.85
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         656.75 ave         920 max         508 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2507.25 ave        4185 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10029
+Ave neighs/atom = 40.277108
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.17
+
+print           "${rdisp},${SFE}" append gsfe
+0.566666666666667,-1002.60780323718
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 18/${steps} 
+variable        rdisp equal 18/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+      1035   0             -1282.5078      0             -1282.5078      1472.7694    
+      1102   0             -1282.5578      0             -1282.5578      1443.7195    
+Loop time of 0.0640725 on 4 procs for 67 steps with 249 atoms
+
+98.5% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1282.50781325791  -1282.55778508596  -1282.55778518013
+  Force two-norm initial, final = 0.5405865 0.00080303144
+  Force max component initial, final = 0.16252564 0.00018398689
+  Final line search alpha, max atom move = 1 0.00018398689
+  Iterations, force evaluations = 67 134
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.020511   | 0.042934   | 0.058339   |   7.8 | 67.01
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00086922 | 0.008257   | 0.025593   |  11.1 | 12.89
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 2.1062e-05 | 0.00010194 | 0.0001539  |   0.0 |  0.16
+Other   |            | 0.01278    |            |       | 19.94
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         656.75 ave         921 max         506 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2508.25 ave        4185 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10033
+Ave neighs/atom = 40.293173
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.18
+
+print           "${rdisp},${SFE}" append gsfe
+0.6,-992.425166869498
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 19/${steps} 
+variable        rdisp equal 19/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+      1102   0             -1282.4275      0             -1282.4275      1214.76      
+      1168   0             -1282.4776      0             -1282.4776      1176.5032    
+Loop time of 0.0711469 on 4 procs for 66 steps with 249 atoms
+
+94.5% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1282.42751006672  -1282.47762070939  -1282.47762082178
+  Force two-norm initial, final = 0.54493035 0.00089953904
+  Force max component initial, final = 0.16644677 0.00021521464
+  Final line search alpha, max atom move = 1 0.00021521464
+  Iterations, force evaluations = 66 132
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.026246   | 0.049019   | 0.065129   |   7.4 | 68.90
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00089487 | 0.0085006  | 0.025158   |  10.5 | 11.95
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 2.5139e-05 | 0.0001086  | 0.00015972 |   0.0 |  0.15
+Other   |            | 0.01352    |            |       | 19.00
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         659.25 ave         925 max         508 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:         2508.5 ave        4188 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10034
+Ave neighs/atom = 40.297189
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.19
+
+print           "${rdisp},${SFE}" append gsfe
+0.633333333333333,-981.690572495625
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 20/${steps} 
+variable        rdisp equal 20/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+      1168   0             -1282.343       0             -1282.343       945.99944    
+      1235   0             -1282.3933      0             -1282.3933      892.3929     
+Loop time of 0.0635383 on 4 procs for 67 steps with 249 atoms
+
+98.7% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1282.34295278047  -1282.39328223519  -1282.39328234862
+  Force two-norm initial, final = 0.54889197 0.00090798871
+  Force max component initial, final = 0.16995202 0.0002741129
+  Final line search alpha, max atom move = 1 0.0002741129
+  Iterations, force evaluations = 67 134
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.018777   | 0.041482   | 0.056978   |   8.0 | 65.29
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00093707 | 0.0084376  | 0.025684   |  10.9 | 13.28
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 2.0397e-05 | 0.00010049 | 0.00015218 |   0.0 |  0.16
+Other   |            | 0.01352    |            |       | 21.28
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         658.25 ave         923 max         508 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2509.25 ave        4186 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10037
+Ave neighs/atom = 40.309237
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.20
+
+print           "${rdisp},${SFE}" append gsfe
+0.666666666666667,-970.397033595743
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 21/${steps} 
+variable        rdisp equal 21/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+      1235   0             -1282.2542      0             -1282.2542      660.353      
+      1303   0             -1282.3048      0             -1282.3048      599.09606    
+Loop time of 0.0640066 on 4 procs for 68 steps with 249 atoms
+
+98.0% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1282.25418205984  -1282.30479102014  -1282.30479111459
+  Force two-norm initial, final = 0.55235209 0.00080321488
+  Force max component initial, final = 0.17325784 0.00012364626
+  Final line search alpha, max atom move = 1 0.00012364626
+  Iterations, force evaluations = 68 136
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.019563   | 0.042477   | 0.057996   |   7.9 | 66.36
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00091029 | 0.0083376  | 0.025598   |  11.0 | 13.03
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 2.3589e-05 | 0.00010321 | 0.00015348 |   0.0 |  0.16
+Other   |            | 0.01309    |            |       | 20.45
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         654.75 ave         917 max         506 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:           2509 ave        4178 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10036
+Ave neighs/atom = 40.305221
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.21
+
+print           "${rdisp},${SFE}" append gsfe
+0.7,-958.547409616188
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 22/${steps} 
+variable        rdisp equal 22/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+      1303   0             -1282.1613      0             -1282.1613      366.28874    
+      1363   0             -1282.2122      0             -1282.2122      300.36768    
+Loop time of 0.0598899 on 4 procs for 60 steps with 249 atoms
+
+94.4% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1282.16125849343  -1282.21221615932  -1282.21221628583
+  Force two-norm initial, final = 0.55577304 0.0010384578
+  Force max component initial, final = 0.17635602 0.00018137358
+  Final line search alpha, max atom move = 1 0.00018137358
+  Iterations, force evaluations = 60 120
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.017959   | 0.038177   | 0.05212    |   7.4 | 63.74
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00085308 | 0.0076279  | 0.023201   |  10.4 | 12.74
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.7517e-05 | 9.032e-05  | 0.00013332 |   0.0 |  0.15
+Other   |            | 0.01399    |            |       | 23.37
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         656.25 ave         920 max         506 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2509.75 ave        4176 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10039
+Ave neighs/atom = 40.317269
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.22
+
+print           "${rdisp},${SFE}" append gsfe
+0.733333333333333,-946.150962412323
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 23/${steps} 
+variable        rdisp equal 23/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+      1363   0             -1282.0643      0             -1282.0643      67.967405    
+      1432   0             -1282.1156      0             -1282.1156     -29.279675    
+Loop time of 0.0772475 on 4 procs for 69 steps with 249 atoms
+
+95.1% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1282.06427113791  -1282.11560930291  -1282.11560940594
+  Force two-norm initial, final = 0.55920433 0.00092834361
+  Force max component initial, final = 0.17914207 0.00024702071
+  Final line search alpha, max atom move = 1 0.00024702071
+  Iterations, force evaluations = 69 138
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.020595   | 0.045948   | 0.066439   |   8.7 | 59.48
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.0013441  | 0.010663   | 0.027421   |   9.8 | 13.80
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 2.4925e-05 | 0.00011095 | 0.00016554 |   0.0 |  0.14
+Other   |            | 0.02053    |            |       | 26.57
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         652.75 ave         913 max         506 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2511.75 ave        4171 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10047
+Ave neighs/atom = 40.349398
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.23
+
+print           "${rdisp},${SFE}" append gsfe
+0.766666666666667,-933.2145940478
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 24/${steps} 
+variable        rdisp equal 24/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+      1432   0             -1281.9633      0             -1281.9633     -260.58844    
+      1500   0             -1282.015       0             -1282.015      -362.98318    
+Loop time of 0.0639369 on 4 procs for 68 steps with 249 atoms
+
+97.1% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1281.96326543297  -1282.01498960495  -1282.01498971473
+  Force two-norm initial, final = 0.56235154 0.00086958092
+  Force max component initial, final = 0.18164269 0.00019273693
+  Final line search alpha, max atom move = 1 0.00019273693
+  Iterations, force evaluations = 68 136
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.018845   | 0.041762   | 0.057742   |   8.0 | 65.32
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00094252 | 0.0086202  | 0.026102   |  10.9 | 13.48
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 2.1992e-05 | 0.00010702 | 0.00017302 |   0.0 |  0.17
+Other   |            | 0.01345    |            |       | 21.03
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:            658 ave         918 max         513 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2514.25 ave        4170 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10057
+Ave neighs/atom = 40.389558
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.24
+
+print           "${rdisp},${SFE}" append gsfe
+0.8,-919.740880874125
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 25/${steps} 
+variable        rdisp equal 25/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+      1500   0             -1281.8582      0             -1281.8582     -592.77194    
+      1563   0             -1281.9103      0             -1281.9103     -679.64229    
+Loop time of 0.06206 on 4 procs for 63 steps with 249 atoms
+
+94.9% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1281.85823866998  -1281.91031812122  -1281.91031822495
+  Force two-norm initial, final = 0.56539309 0.00089725621
+  Force max component initial, final = 0.1838233 0.0002466713
+  Final line search alpha, max atom move = 1 0.0002466713
+  Iterations, force evaluations = 63 126
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.018961   | 0.040833   | 0.055929   |   7.8 | 65.80
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00082483 | 0.0082209  | 0.024915   |  10.7 | 13.25
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.9809e-05 | 0.00012238 | 0.00022459 |   0.0 |  0.20
+Other   |            | 0.01288    |            |       | 20.76
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:            658 ave         918 max         513 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:           2514 ave        4167 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10056
+Ave neighs/atom = 40.385542
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.25
+
+print           "${rdisp},${SFE}" append gsfe
+0.833333333333333,-905.724602214386
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 26/${steps} 
+variable        rdisp equal 26/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+      1563   0             -1281.7491      0             -1281.7491     -908.90178    
+      1624   0             -1281.8015      0             -1281.8015     -969.17033    
+Loop time of 0.0576233 on 4 procs for 61 steps with 249 atoms
+
+98.5% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1281.74911413607  -1281.80152537709  -1281.80152549242
+  Force two-norm initial, final = 0.56782189 0.00094632724
+  Force max component initial, final = 0.18601549 0.00029320976
+  Final line search alpha, max atom move = 1 0.00029320976
+  Iterations, force evaluations = 61 122
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.01751    | 0.038004   | 0.052156   |   7.5 | 65.95
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00082999 | 0.0075702  | 0.023128   |  10.4 | 13.14
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 3.2898e-05 | 9.8751e-05 | 0.00015169 |   0.0 |  0.17
+Other   |            | 0.01195    |            |       | 20.74
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:            658 ave         918 max         513 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:         2517.5 ave        4171 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10070
+Ave neighs/atom = 40.441767
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.26
+
+print           "${rdisp},${SFE}" append gsfe
+0.866666666666667,-891.156458982841
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 27/${steps} 
+variable        rdisp equal 27/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+      1624   0             -1281.6358      0             -1281.6358     -1198.3869    
+      1681   0             -1281.6886      0             -1281.6886     -1220.8244    
+Loop time of 0.0540432 on 4 procs for 57 steps with 249 atoms
+
+97.0% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1281.63581781469   -1281.6885718861  -1281.68857200506
+  Force two-norm initial, final = 0.56989823 0.00098228665
+  Force max component initial, final = 0.18793405 0.000171463
+  Final line search alpha, max atom move = 1 0.000171463
+  Iterations, force evaluations = 57 114
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.016022   | 0.035351   | 0.048687   |   7.4 | 65.41
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00073672 | 0.007122   | 0.021751   |  10.1 | 13.18
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.9267e-05 | 0.00010098 | 0.00016772 |   0.0 |  0.19
+Other   |            | 0.01147    |            |       | 21.22
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         654.75 ave         917 max         506 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:         2515.5 ave        4169 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10062
+Ave neighs/atom = 40.409639
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.27
+
+print           "${rdisp},${SFE}" append gsfe
+0.9,-876.031160223019
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 28/${steps} 
+variable        rdisp equal 28/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+      1681   0             -1281.5184      0             -1281.5184     -1450.0491    
+      1722   0             -1281.5714      0             -1281.5714     -1422.364     
+Loop time of 0.0397287 on 4 procs for 41 steps with 249 atoms
+
+93.7% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1281.51835627852  -1281.57144718364  -1281.57144730637
+  Force two-norm initial, final = 0.57176172 0.0010008851
+  Force max component initial, final = 0.18981642 0.00024528322
+  Final line search alpha, max atom move = 1 0.00024528322
+  Iterations, force evaluations = 41 82
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.011701   | 0.025949   | 0.035721   |   6.3 | 65.32
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00055846 | 0.005231   | 0.016161   |   8.8 | 13.17
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.3448e-05 | 6.2659e-05 | 9.654e-05  |   0.0 |  0.16
+Other   |            | 0.008486   |            |       | 21.36
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         654.25 ave         916 max         506 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2516.75 ave        4175 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10067
+Ave neighs/atom = 40.429719
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.28
+
+print           "${rdisp},${SFE}" append gsfe
+0.933333333333333,-860.347305734562
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 29/${steps} 
+variable        rdisp equal 29/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+      1722   0             -1281.3968      0             -1281.3968     -1651.196     
+      1762   0             -1281.4502      0             -1281.4502     -1592.0647    
+Loop time of 0.0383325 on 4 procs for 40 steps with 249 atoms
+
+98.6% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1281.39675241387  -1281.45017914753  -1281.45017924106
+  Force two-norm initial, final = 0.57352602 0.00078200868
+  Force max component initial, final = 0.19157517 0.00012877571
+  Final line search alpha, max atom move = 1 0.00012877571
+  Iterations, force evaluations = 40 80
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.011574   | 0.025282   | 0.034782   |   6.1 | 65.95
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00056866 | 0.0050276  | 0.015197   |   8.3 | 13.12
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.5362e-05 | 6.1981e-05 | 9.0355e-05 |   0.0 |  0.16
+Other   |            | 0.007961   |            |       | 20.77
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         652.25 ave         912 max         506 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:        2516.75 ave        4178 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10067
+Ave neighs/atom = 40.429719
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.29
+
+print           "${rdisp},${SFE}" append gsfe
+0.966666666666667,-844.108624126232
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+variable        rdisp equal 30/${steps} 
+variable        rdisp equal 30/30 
+
+displace_atoms  upper move ${disp} 0 0 units box
+displace_atoms  upper move 0.093877153770233 0 0 units box
+Displacing atoms ...
+
+fix             1 mobile setforce NULL 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+WARNING: Using 'neigh_modify every 1 delay 0 check yes' setting during minimization (src/min.cpp:187)
+Per MPI rank memory allocation (min/avg/max) = 4.332 | 4.428 | 4.464 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+      1762   0             -1281.2711      0             -1281.2711     -1820.4545    
+      1802   0             -1281.3248      0             -1281.3248     -1723.2958    
+Loop time of 0.0389583 on 4 procs for 40 steps with 249 atoms
+
+98.6% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+     -1281.27107919298  -1281.32483865512  -1281.32483876716
+  Force two-norm initial, final = 0.57499282 0.00091371854
+  Force max component initial, final = 0.19319932 0.00014922532
+  Final line search alpha, max atom move = 1 0.00014922532
+  Iterations, force evaluations = 40 80
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.011549   | 0.02536    | 0.035051   |   6.2 | 65.10
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00053317 | 0.0050962  | 0.015806   |   8.7 | 13.08
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 1.537e-05  | 0.00010162 | 0.0002397  |   0.0 |  0.26
+Other   |            | 0.008401   |            |       | 21.56
+
+Nlocal:          62.25 ave          94 max           0 min
+Histogram: 1 0 0 0 0 0 1 0 0 2
+Nghost:         652.25 ave         912 max         506 min
+Histogram: 2 0 0 1 0 0 0 0 0 1
+Neighs:           2518 ave        4182 max           0 min
+Histogram: 1 0 0 0 1 0 0 0 0 2
+
+Total # of neighbors = 10072
+Ave neighs/atom = 40.449799
+Neighbor list builds = 0
+Dangerous builds = 0
+
+write_dump      all atom dump.${i}
+write_dump      all atom dump.30
+
+print           "${rdisp},${SFE}" append gsfe
+1,-827.324617198219
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
+Total wall time: 0:00:02

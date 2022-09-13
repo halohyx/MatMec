@@ -1,0 +1,148 @@
+# variables
+variable        lattConst equal 2.9505999088
+variable        c_over_a  equal 1.5857113807361214
+variable        _ydisp equal 1.0
+
+variable        a11 equal ${lattConst}
+variable        a22 equal sqrt(3+4*${c_over_a}^2)*${lattConst}
+variable        a33 equal sqrt(3+${c_over_a}^2)*${lattConst}*3.614252724504768+3
+
+variable        top equal 0.893019974
+variable        upperBound equal 0.82305
+variable        lowerBound equal 0.02333
+variable        half equal 0.42
+variable        vacHigh equal ${a33}*1.3
+
+
+# ------------------- Simulation System -----------------------
+units           metal
+atom_style      atomic
+boundary        p p p
+neighbor        0.3 bin
+
+# ------------------- Lattice Definition -----------------------
+# always displace towards y direction
+# will have 3 groups, upper, lower and boundary, boundary will be fixed to avoid the 
+# surface interaction
+# don't change the following position. It contains 28 atoms with each layer 1 atom and 2 A vaccum layer.
+
+print           "a1 ${a11} 0.0 0.0"
+print           "a2 0 ${a22} 0.0"
+print           "a3 0.0 0.0 ${a33}"
+
+lattice         custom 1.00 &
+                a1 ${a11}   0.0     0.0 & 
+                a2 0.0      ${a22}  0.0 & 
+                a3 0.0      0.0     ${a33} &
+                basis 0.000000000  0.242789999  0.000000000 basis 0.000000000  0.627919972  0.079970002 & 
+                basis 0.500000000  0.742789984  0.000000000 basis 0.000000000  0.013050000  0.159940004 &
+                basis 0.000000000  0.398169994  0.239920005 basis 0.000000000  0.783299983  0.319889992 &
+                basis 0.500000000  0.127920002  0.079970002 basis 0.500000000  0.513050020  0.159940004 &
+                basis 0.500000000  0.898169994  0.239920005 basis 0.000000000  0.168430001  0.399859995 &
+                basis 0.000000000  0.553560019  0.479829997 basis 0.000000000  0.938679993  0.559800029 &
+                basis 0.500000000  0.283300012  0.319889992 basis 0.500000000  0.668429971  0.399859995 &               
+                basis 0.000000000  0.323810011  0.639779985 basis 0.000000000  0.708940029  0.719749987 &
+                basis 0.500000000  0.053560000  0.479829997 basis 0.500000000  0.438679993  0.559800029 &
+                basis 0.500000000  0.823809981  0.639779985 basis 0.000000000  0.094059996  0.799719989 &
+                basis 0.000000000  0.479189992  0.879689991 basis 0.500000000  0.594060004  0.799719989 &
+                basis 0.500000000  0.979189992  0.879689991 basis 0.500000000  0.208939999  0.719749987 &
+                basis 0.000000000  0.973649979  0.013330000 basis 0.000000000  0.358770013  0.093300000 &
+                basis 0.000000000  0.743900001  0.173270002 basis 0.500000000  0.473650008  0.013330000 &
+                basis 0.500000000  0.858770013  0.093300000 basis 0.000000000  0.129030004  0.253239989 &
+                basis 0.000000000  0.514159977  0.333220005 basis 0.000000000  0.899280012  0.413190007 &
+                basis 0.500000000  0.243900001  0.173270002 basis 0.500000000  0.629029989  0.253239989 &
+                basis 0.000000000  0.284410000  0.493160009 basis 0.000000000  0.669539988  0.573130012 &
+                basis 0.500000000  0.014160000  0.333220005 basis 0.500000000  0.399280012  0.413190007 &
+                basis 0.500000000  0.784410000  0.493160009 basis 0.000000000  0.054660000  0.653100014 &
+                basis 0.000000000  0.439790010  0.733080029 basis 0.000000000  0.824919999  0.813049972 &
+                basis 0.500000000  0.169540003  0.573130012 basis 0.500000000  0.554660022  0.653100014 &
+                basis 0.500000000  0.939790010  0.733080029 basis 0.000000000  0.210050002  0.893019974 &
+                basis 0.500000000  0.324919999  0.813049972 basis 0.500000000  0.710049987  0.893019974 &
+
+
+# lattice         hcp 1 orient y 0 2 -1 orient x 1 0 0 orient z 0 1 2
+
+
+region          atoms block 0 1 0 1 0 1 units lattice # the region of atoms
+create_box      5 atoms # 3 types of atoms 
+region          upper block INF INF INF INF ${half} ${top} units lattice
+region          upperbound block INF INF INF INF ${upperBound} INF units lattice
+region          lowerbound block INF INF INF INF INF ${lowerBound} units lattice
+
+create_atoms    1 region atoms
+
+change_box      all z delta 0 15 units box # add vacuum layer 15 A
+
+group           atoms region atoms
+group           upper region upper
+group           lower subtract atoms upper
+group           mobile union upper lower
+group           upperbound region upperbound
+group           lowerbound region lowerbound
+group           boundary union upperbound lowerbound
+
+set             group lower type 1
+set             group upper type 1
+set             group boundary type 1
+
+# ------------------- Potential Setting -----------------------
+# pair_style      eam/fs
+# pair_coeff      * * Zr_3.eam.fs Zr Zr Zr
+
+mass            1 47.87
+mass            2 26.98
+mass            3 95.94
+mass            4 52.00
+mass            5 55.85
+
+pair_style      deepmd Ti_attn.pb
+pair_coeff      * *
+
+# write_data      data.init
+# jump            in.blank
+
+# calculate the E0 of current relaxed perfect configuration
+variable        A equal lx*ly*1E-20
+variable        ev2mJ equal 1.60217657E-16
+
+fix             1 boundary setforce 0. 0. 0.
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+run             0
+unfix           1
+write_dump      all atom dump.0 
+
+variable        E0_ equal pe
+variable        E0 equal ${E0_}
+variable        SFE equal (pe-${E0})/$A*${ev2mJ}
+
+print           "0,${SFE}" file gsfe
+
+# create a loop to calculate the following displacement
+variable        steps equal 30
+variable        ydisp equal ${_ydisp}/${steps}
+
+# start loop
+
+variable        i loop ${steps}
+label           loop
+
+variable        rdisp equal $i/${steps} # the relative displacement
+
+displace_atoms  upper move 0.0 ${ydisp} 0 units lattice
+
+fix             1 mobile setforce 0. 0. NULL # only allowed to relax in Z direction
+fix             2 boundary setforce 0. 0. 0. # boundary is fixed to avoid the surface effect
+
+min_style       cg
+minimize        1E-10 1E-10 100000 100000
+
+write_dump      all atom dump.${i}
+
+print           "${rdisp},${SFE}" append gsfe
+
+unfix           1
+unfix           2
+
+next            i
+jump            SELF loop
