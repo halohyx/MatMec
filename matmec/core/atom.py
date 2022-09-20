@@ -57,7 +57,7 @@ class Atom:
         UPPDATE_ITEM['elements'] = True
     element = property(_get_element, _set_element, doc='The element symbol of this atom')
 
-    # pos
+    # @atom_property: pos
     def _get_pos(self):
         return self.get_propdict_value('pos')
     def _set_pos(self, pos=None):

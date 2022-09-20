@@ -1,10 +1,10 @@
-
 import warnings
 import os
 import numpy as np
 from .cell import Cell
 from .atom import Atom, UPPDATE_ITEM
-import copy
+from copy import deepcopy
+from typing import Union
 from matmec.tool.latt_tool import get_distances, complete_arr, get_diff_index, \
                                 periodic_table, check_formula, get_formula, \
                                 get_elements_list_fromformula, get_elements_list_from_poscarString,\
@@ -211,7 +211,7 @@ class Latt:
             self.set_direct(isDirect)
         else:
             self._set_propdict('cell', cell)
-    def set_cell(self, scale: float =1.0, lattvec: np.array =None):
+    def set_cell(self, lattvec: np.array =None, scale: float =1.0):
         cell = Cell()
         cell.scale = scale
         if lattvec is None:
@@ -227,7 +227,7 @@ class Latt:
 
     # @latt_property: propdict
     def _get_propdict_value(self, name):
-        return copy.deepcopy(self.propdict.get(name))
+        return deepcopy(self.propdict.get(name))
     def _set_propdict(self, name, value=None):
         if name in atoms_propdict:
             self._update_atom_propdict(name)
@@ -373,6 +373,43 @@ class Latt:
         s += 'cell: %s' % self.cell
         return s
 
+    def copy(self):
+        return deepcopy(self)
+
+    def get_supercell(self, supercell: Union[list, np.ndarray]):
+        if len(supercell) != 3:
+            raise ValueError('Check the input supercell, should be length of 3 and all integers')
+        for i in supercell:
+            assert (np.floor(i) == i), 'Check the input supercell, should be length of 3 and all integers'
+
+        tmpLatt = self.copy()
+
+        newcell = tmpLatt.cell.lattvec*supercell
+        tmpLatt.set_cell(newcell)
+
+        newatomlist = np.array(tmpLatt.atomlist)
+        for i, dimen in enumerate(supercell):
+            oldlen = len(newatomlist)
+            # duplicate the newatomlist in the desired dimention
+            tmpatomlist = []
+            for _ in range(dimen):
+                tmpatomlist.append(deepcopy(newatomlist))
+            newatomlist = np.array(tmpatomlist).reshape(-1)
+            del tmpatomlist
+            # prepare the toadd_list
+            toadd_list = []
+            for j in range(2, dimen+1):
+                toadd_list.append([(j-1)/dimen]*oldlen)
+            toadd_list = np.array(toadd_list).reshape(-1)
+            # for each new created atom, add corresponding value onto it
+            for atom, toadd in zip(newatomlist[oldlen:], toadd_list):
+                atom.pos[i] += toadd
+        tmpLatt.atomlist = newatomlist
+        for key in tmpLatt.propdict.keys():
+            if key in atoms_propdict:
+                tmpLatt._update_atom_propdict(key)
+        return tmpLatt
+
     def read_from_poscar(self, file: os.path='./POSCAR'):
         if os.path.isfile('%s' % file):
             poscar = self.__class__()
@@ -460,6 +497,15 @@ class Latt:
         '''
         To output the current system into a POSCAR file
         '''
+        s = self.to_poscar_string()
+        print('wrote POSCAR into %s' % file)
+        with open(file, 'w') as f:
+            f.write(s)
+    
+    def to_poscar_string(self):
+        '''
+        Return a string with VASP POSCAR format
+        '''
         isOverlap = self.check_overlap()
         if  isOverlap is False:
             # This means there is no overlap
@@ -504,6 +550,7 @@ class Latt:
             for i in range(self.natom):
                 for j in poslist[3*i:3*i+3]:
                     s += '\t%.10f\t' % j
+                s += '%s' % self.elements[i]
                 s += '\n'
         # if velocity is not all zero, then write velocity as well
         velocity_bool = np.array(self.velocity, dtype=bool)
@@ -515,12 +562,10 @@ class Latt:
                 for j in velocitylist[3*i:3*i+3]:
                     s += '%.10f\t' % j
                 s += '\n'
-        with open(file, 'w+') as f:
-            f.write(s)
         
-        print('wrote POSCAR into %s' % file)
+        return s
         
-
+        
     def set_fix_TopBottom(self, fix: bool =[True, True, False], element: str or list =None):
         '''
         Can be used to fix bottom and top atoms. 

@@ -6,7 +6,7 @@ class Cell:
 
     __name__ = 'matmec.core.Cell' 
 
-    def __init__(self, scale: float =1.0, lattvec: np.ndarray =None):
+    def __init__(self, lattvec: np.ndarray =None, scale: float =1.0):
         self.propdict = {}
         self.scale = scale
         if lattvec is None:
