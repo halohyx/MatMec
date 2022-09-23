@@ -25,9 +25,9 @@ class Cell:
         a = np.linalg.norm(self.lattvec[0])
         b = np.linalg.norm(self.lattvec[1])
         c = np.linalg.norm(self.lattvec[2])
-        alpha = np.arccos(np.dot(self.lattvec[0], self.lattvec[1])/(a*c))/(np.pi/180)
+        alpha = np.arccos(np.dot(self.lattvec[0], self.lattvec[1])/(a*b))/(np.pi/180)
         beta = np.arccos(np.dot(self.lattvec[1], self.lattvec[2])/(b*c))/(np.pi/180)
-        gamma = np.arccos(np.dot(self.lattvec[0], self.lattvec[2])/(a*b))/(np.pi/180)
+        gamma = np.arccos(np.dot(self.lattvec[0], self.lattvec[2])/(a*c))/(np.pi/180)
         return np.array([a, b, c, alpha, beta, gamma])
     
     def get_cell_shape(self, len_tolerence: float=1.5e-2, angle_tolerence: float=1):
