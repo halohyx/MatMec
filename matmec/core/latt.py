@@ -18,14 +18,68 @@ atoms_propdict = {'elements':'element', 'poslist':'pos', 'fix':'fix', \
 latt_prop = ['cell', 'name', '__direct__', 'propdict', 'natom', 'formula']
 
 
+
+class Atomlist:
+    __name__ = 'matmec.core.Atomlist'
+    def __init__(self, atomlist: Union[list, np.ndarray]=None) -> None:
+        '''
+        To pack the atomlist to provide it with more function
+        '''
+        if atomlist is None:
+            self.atomlist = np.array([], dtype=Atom)
+        else:
+            self.atomlist = np.array(atomlist, dtype=object)
+    
+    @property
+    def atomlist(self):
+        return self._atomlist
+    @atomlist.setter
+    def atomlist(self, newatomlist: Union[list, np.ndarray]):
+        if newatomlist is None:
+            self._atomlist = None
+        else:
+            for atom in newatomlist:
+                assert(atom.__name__ == 'matmec.core.Atom'), 'The newatomlist should only contain Atom object!'
+            self._atomlist = newatomlist
+    
+    def get_atom_property(self, atom_property):
+        atom_property_list = []
+        for atom in self.atomlist:
+            atom_property_list.append(atom)
+
+    def append(self, atomlist):
+        self.atomlist = np.append(self.atomlist, atomlist).reshape(-1)
+        return self
+    
+    def __add__(self, atomlist):
+        return np.append(self.atomlist, atomlist).reshape(-1)
+
+    def __getitem__(self, idx: int):
+        return self.atomlist[idx]
+    
+    def __len__(self) -> int:
+        '''Length of the atomlist'''
+        return len(self.atomlist)
+    
+    def __repr__(self):
+        s = ''
+        for atom in self.atomlist:
+            s += '%s\n' % atom
+        return s
+
 class Latt:
 
     __name__ = 'matmec.core.Latt'
     isSelectiveDynamic = False
 
-    def __init__(self, formula: str=None, cell: Cell=None, pos=[0., 0., 0.],\
-                isDirect: bool=True, fix: bool =[True, True, True], \
-                velocity=[0., 0., 0.], name: str ='MatMecLatt'):
+    def __init__(self, 
+                 formula: str=None, 
+                 cell: Cell=None, 
+                 pos= [0., 0., 0.],
+                 fix: bool =[True, True, True],
+                 velocity=[0., 0., 0.], 
+                 isDirect: bool=True,
+                 name: str ='MatMecLatt'):
         '''
         The Latt class.\n
         1) formula: the formula of the system. can be like Ce12H3
@@ -44,14 +98,13 @@ class Latt:
         '''
         # initilize the propdict, name, __direct__ and atomlist
         self.propdict = {}
-        self.__atomlist = np.array([], dtype=Atom)
+        self.atomlist = np.array([], dtype=Atom)
         self.name = name
         self.__direct__ = isDirect
 
         # set cell
         if cell is None:
-            cell = Cell()
-            self._set_cell(cell)
+            self.cell = None
         else:
             if isinstance(cell, Cell):
                 self._set_cell(cell)
@@ -69,23 +122,28 @@ class Latt:
                 raise ValueError('The implemented formula doesnt has correct form')
         elif isinstance(formula, (tuple, list, np.ndarray)):
             # if implemented a list of atoms, just add them
-            if isinstance(formula[0], Atom):
-                self.addatom(formula)
-            elif isinstance(formula[0], str):
-                self.addatom(formula, pos, self.__direct__, fix, velocity)
+            self.addatom(formula, pos, self.__direct__, fix, velocity)
+        elif isinstance(formula, Latt):
+            self.set_cell(formula.cell)
+            self.addatom(formula.atomlist)
 
 
     def addatom(self, element: str, pos=[0., 0., 0.], isDirect: bool=True, \
                 fix: bool =[True, True, True], velocity=[0., 0., 0.]):
         '''
-        Two ways to add atoms:
-        1) put Atom class-like objects in the first place
-        2) by setting atom-props
+        Several situations in providing input:
+        1) single Atom instance in the 1st place
+        2) single Latt instance in the 1st place (cell will be first set as the cell of current Latt instance,\
+            and the direct set to the self.get_direct())
+        3) a list of Atom instances in the first place
+        4) a list of string instances indicating what elements will be added, and the pos, isDirect, fix, velocity\
+            can be given in following
+        5) single string instance, will be regarded as formula and resolved by built-in algorism and call in 4)
         '''
         # one object given, in Atom or Latt form
         if hasattr(element, '__name__'):
-            if element.__name__ == 'matmec.core.Atom':
-                self.atomlist = np.append(self.atomlist, element)
+            if element.__name__ == 'matmec.core.Atom' or element.__name__ == 'matmec.core.Atomlist':
+                self.atomlist.append(element)
                 return 0
             elif element.__name__ == 'matmec.core.Latt':
                 '''
@@ -93,8 +151,8 @@ class Latt:
                 as self.cell, and a1.set_direct() to the self.__direct__
                 '''
                 element.cell = self.cell
-                element.set_direct(self.__direct__)
-                self.atomlist = np.append(self.atomlist, element.atomlist)
+                element.set_direct(self.get_direct())
+                self.atomlist.append(element.atomlist)
                 return 0
             else:
                 raise ValueError('What the fuck you inputted?')
@@ -104,7 +162,7 @@ class Latt:
             if isinstance(element[0], Atom):
                 for atom in element:
                     assert(atom.__name__ == 'matmec.core.Atom'), 'Object %s in the list is not Atom object.' % atom
-                self.atomlist = np.append(self.atomlist, element)
+                self.atomlist.append(element)
                 return 0
             # if the object in the list is of str class
             elif isinstance(element[0], str):
@@ -129,6 +187,8 @@ class Latt:
         elif isinstance(element, str):
             element = get_elements_list_fromformula(element)
             self.addatom(element, pos, isDirect, fix, velocity)
+        else:
+            raise ValueError('Pls provide correct type of input.')
 
     def __add_single_atom(self, atom):
         pass
@@ -159,13 +219,17 @@ class Latt:
             poslist += eps
             poslist %= 1.0
             poslist -= eps
-            poslist = np.matmul(self.cell.lattvec*self.cell.scale, poslist)
+            poslist = np.matmul(poslist, self.cell.lattvec*self.cell.scale)
             self.poslist = poslist
 
+    def merge_sites(self, 
+                    tolerence: float=1E-6):
+        pass
 
 
     # check overlap
-    def check_overlap(self, tolerence: float=1E-6):
+    def check_overlap(self, 
+                      tolerence: float=1E-6):
         '''
         Check if some atoms are overlaped
         1) if no atoms overlapped, return False
@@ -173,7 +237,10 @@ class Latt:
         overlap with the corresponding atoms in the second index list
         '''
         poslist = np.array(self.poslist)
-        _, dis_arr = get_distances(poslist, cell=self.cell)
+        if self.get_direct(True):
+            _, dis_arr = get_distances(poslist, cell=self.cell)
+        else:
+            _, dis_arr = get_distances(poslist, cell=None)
         id1, id2 = np.triu_indices(len(poslist), 1)
         overlap_id = np.where(dis_arr[id1, id2] < tolerence)[0]
         if len(overlap_id) == 0:
@@ -206,31 +273,43 @@ class Latt:
 
     @property
     def atomlist(self):
-        return self.__atomlist
+        return self._atomlist
     @atomlist.setter
     def atomlist(self, newatomlist):
-        for atom in newatomlist:
-            assert(atom.__name__ == 'matmec.core.Atom'), 'The newatomlist should only contain Atom object!'
-        self.__atomlist = newatomlist
+        self._atomlist = Atomlist(newatomlist)
     
 
     # @latt_property: cell
     def _get_cell(self):
         return self._get_propdict_value('cell')
     def _set_cell(self, cell: Cell):
-        assert(cell.__name__ == 'matmec.core.Cell'), 'The cell should be of Cell type'
         '''
         When set cell, the atoms in latt will be changed into cartesian coordinate,\
             and the cell can be directly attached. Then the coordinate is changed back.
         '''
-        isDirect = self.__direct__
-        if self.cell is not None:
-            self.set_direct(False)
-            self._set_propdict('cell', cell)
-            self.set_direct(isDirect)
+        if cell is not None:
+            assert(cell.__name__ == 'matmec.core.Cell'), 'The cell should be of Cell type'
+            isDirect = self.__direct__
+            if self.cell is not None:
+                self.set_direct(False)
+                self._set_propdict('cell', cell)
+                self.set_direct(isDirect)
+            else:
+                self._set_propdict('cell', cell)
         else:
-            self._set_propdict('cell', cell)
-    def set_cell(self, lattvec: np.array =None, scale: float =1.0, overwrite=False):
+            self._set_propdict('cell', None)
+    def set_cell(self, 
+                 lattvec: np.array =None, 
+                 scale: float =1.0, 
+                 scaleatoms=False):
+        '''
+        Set the cell of current latt instance.
+        Args:
+            lattvec: the lattice vectors of new cell. Or can be given as another Cell instance.
+            scale: only works when lattvec is given as lattive vectors. Scale of the cell.
+            scaleatoms: whether to change the cartesian coordinates of atoms, or scale the position \
+                of atoms using the direct coordinates of atoms in the new cell.
+        '''
         if isinstance(lattvec, Cell):
             cell = lattvec
         else:
@@ -244,11 +323,19 @@ class Latt:
                 lattvec = np.array(lattvec, dtype=float)
                 assert(lattvec.shape == (3, 3)), ValueError("The lattice vector should be (3, 3) matrix")
             cell.lattvec = lattvec
-        if overwrite:
-            self._set_propdict('cell', cell)
-        else:
+        if not scaleatoms or self.cell == None:
+            # don't change the cartesian coordinates of the atoms
             self.cell = cell
+        else:
+            # apply cell onto the direct positions of atoms, will scale them
+            isDirect = self.__direct__
+            self.set_direct(True)
+            self._set_propdict('cell', cell)
+            self.set_direct(isDirect)
     cell = property(_get_cell, _set_cell, doc='The cell that current atom belongs to')
+
+    def del_cell(self):
+        self._set_propdict('cell', None)
 
     # @latt_property: propdict
     def _get_propdict_value(self, name):
@@ -258,12 +345,9 @@ class Latt:
             self._update_atom_propdict(name)
         elif name in latt_prop:
             # the properties directly from the latt
-            if value is not None:
-                self.propdict[name] = value
-            else:
-                del self.propdict[name]
+            self.propdict[name] = value
         else:
-            pass
+            raise ValueError('Provided name is not one of the latt properties.')
     def _update_atom_propdict(self, name):
         assert(name in atoms_propdict), 'The property doesnt belong to atoms_prop, pls call set_propdict'
         exec('prop_value = [ atom.%s for atom in self.atomlist]' % atoms_propdict[name])
@@ -292,19 +376,19 @@ class Latt:
         3) when newarr has longer length than current atomlist, extra atoms will be created following the copy of the last atom in atomlist. Then follow 1)
         '''
         newarr = np.atleast_2d(newarr)
-        if len(newarr) != len(self.__atomlist):
+        if len(newarr) != len(self.atomlist):
             # 创建新的原子或删除现在的部分原子
-            if len(newarr) < len(self.__atomlist):
+            if len(newarr) < len(self.atomlist):
                 warnings.warn('The newarr has shorter length than current atomlist, extra atoms will be deleted. pls make sure you know what you are doing!')
-                self.__atomlist = self.__atomlist[:len(newarr)]
+                self.atomlist = self.atomlist[:len(newarr)]
                 self._update_atom_propdict(name)
                 modify_index = get_diff_index(newarr, self._get_propdict_value(name))
                 self._set_part_atom_propdict(name, newarr[modify_index], modify_index)
-            elif len(newarr) > len(self.__atomlist):
+            elif len(newarr) > len(self.atomlist):
                 warnings.warn('The newarr has shorter length than current atomlist, extra atoms will be created follow the last atom in atomlist. pls make sure you know what you are doing!')
-                created_atom_num = len(newarr) - len(self.__atomlist)
-                created_atoms = self.__atomlist[-1]*created_atom_num
-                self.__atomlist = np.append(self.__atomlist, created_atoms)
+                created_atom_num = len(newarr) - len(self.atomlist)
+                created_atoms = self.atomlist[-1]*created_atom_num
+                self.atomlist.append(created_atoms)
                 self._update_atom_propdict(name)
                 modify_index = get_diff_index(newarr, self._get_propdict_value(name))
                 self._set_part_atom_propdict(name, newarr[modify_index], modify_index)
@@ -318,7 +402,7 @@ class Latt:
         which modify the atoms by the given modify_index, and then update the propdict of given name
         '''
         assert(len(value) == len(modify_index)),'The length of the value to modify and the index to modify shoud be same!'
-        for i, atom in enumerate(self.__atomlist[modify_index]):
+        for i, atom in enumerate(self.atomlist[modify_index]):
             atom.set_propdict(atoms_propdict[name], value[i])
         self._update_atom_propdict(name)
 
@@ -358,22 +442,25 @@ class Latt:
         return self.__direct__
     def set_direct(self, isDirect: bool =True):
         assert(isinstance(isDirect, bool)), 'The isDirect should be of bool type'
-        transferNeed = self.__direct__ == isDirect
-        if not transferNeed:
-            if not len(self.poslist) == 0: 
-                if self.__direct__:
-                    self.__DtoC()
+        if self.cell:
+            transferNeed = self.__direct__ == isDirect
+            if not transferNeed:
+                if not len(self.poslist) == 0: 
+                    if self.__direct__:
+                        self.__DtoC()
+                    else:
+                        self.__CtoD()
+                    for atom in self.atomlist:
+                        atom.__direct__ = isDirect
+                    self.__direct__ = isDirect
                 else:
-                    self.__CtoD()
-                for atom in self.__atomlist:
-                    atom.__direct__ = isDirect
-                self.__direct__ = isDirect
-            else:
-                self.__direct__ = isDirect
-    
+                    self.__direct__ = isDirect
+        else:
+            self.__direct__ = isDirect
+
     # @latt_property: natom
     def _get_natom(self):
-        return len(self.__atomlist)
+        return len(self.atomlist)
     def _set_natom(self):
         raise ValueError('natom cannot be set!')
     natom = property(_get_natom, _set_natom, doc='The number of atoms in this system.')
@@ -406,26 +493,25 @@ class Latt:
     def copy(self):
         return deepcopy(self)
 
-    def get_supercell(self, supercell: Union[list, np.ndarray]):
+    def get_supercell(self, 
+                      supercell: Union[list, np.ndarray]):
         if len(supercell) != 3:
             raise ValueError('Check the input supercell, should be length of 3 and all integers')
         for i in supercell:
             assert (np.floor(i) == i), 'Check the input supercell, should be length of 3 and all integers'
-        if not self.__direct__:
-            self.set_direct(True)
         tmpLatt = self.copy()
-
+        if not tmpLatt.__direct__:
+            tmpLatt.set_direct(True)
         newcell = np.array(tmpLatt.cell.lattvec.T*np.array(supercell)).T# [tmpLatt.cell.lattvec[i]*supercell[i] for i in range(3)]
         tmpLatt.set_cell(newcell)
 
-        newatomlist = np.array(tmpLatt.atomlist)
+        newatomlist = Atomlist(tmpLatt.atomlist)
         for i, dimen in enumerate(supercell):
             oldlen = len(newatomlist)
-            # duplicate the newatomlist in the desired dimention
-            tmpatomlist = []
+            # duplicate the newatomlist in desired dimention
+            tmpatomlist = Atomlist()
             for _ in range(dimen):
                 tmpatomlist.append(deepcopy(newatomlist))
-            newatomlist = np.array(tmpatomlist).reshape(-1)
             del tmpatomlist
             # prepare the toadd_list
             toadd_list = []
@@ -439,12 +525,15 @@ class Latt:
         for key in tmpLatt.propdict.keys():
             if key in atoms_propdict:
                 tmpLatt._update_atom_propdict(key)
-        tmpLatt.wrap()
+        # tmpLatt.wrap()
         return tmpLatt
 
-    def read_from_poscar(self, file: os.path='./POSCAR', inplace=True):
+    @classmethod
+    def read_from_poscar(cls, 
+                         file: os.path='./POSCAR'
+                         ):
         if os.path.isfile('%s' % file):
-            poscar = self.__class__()
+            poscar = cls()
             with open(file, 'r') as f:
                 count = 1
                 line = f.readline()
@@ -469,7 +558,8 @@ class Latt:
                         continue
                     elif count == 6:
                         LatticeVecs = LatticeVecs.reshape(3, 3)
-                        poscar.set_cell(scale=scale, lattvec=LatticeVecs)
+                        # BUG pls make sure the set_cell func is correct here
+                        poscar.set_cell(lattvec=LatticeVecs, scale=scale)
                         elementsNames = line.strip().split()
                         continue
                     elif count == 7:
@@ -516,22 +606,16 @@ class Latt:
                 velocitylist = velocitylist.reshape(-1, 3)
                 if len(velocitylist) != len(poslist):
                     velocitylist = [0., 0., 0.]
-                poscar.addatom(elementList, poslist, poscar.__direct__, fixlist, velocitylist)
+                poscar.addatom(elementList, poslist, poscar.get_direct(), fixlist, velocitylist)
                 # set poscar to current latt
-                
                 poscar.isSelectiveDynamic = isSelectiveDynamic
-                poscar.wrap() # 此时不一定是cartesian 坐标
-                if inplace:
-                    self.__init__(name=poscar.name, cell=poscar.cell, isDirect=poscar.__direct__)
-                    self.atomlist = poscar.atomlist
-                    self.isSelectiveDynamic = isSelectiveDynamic
-                    return self
-                else:
-                    return poscar
+                poscar.wrap()
+                return poscar
         else:
             raise ValueError('Please ensure the validity of file path.')
 
-    def write_to_poscar(self, file: str='POSCAR'):
+    def write_to_poscar(self, 
+                        file: str='POSCAR'):
         '''
         To output the current system into a POSCAR file
         '''
@@ -544,7 +628,8 @@ class Latt:
         '''
         Return a string with VASP POSCAR format
         '''
-        isOverlap = self.check_overlap()
+        # isOverlap = self.check_overlap()
+        isOverlap = False
         if  isOverlap is False:
             # This means there is no overlap
             pass

@@ -26,7 +26,7 @@ class Traj:
         self.elements = elements
 
         if poslist is None:
-            self.poslist = 1e100*np.ones(3).reshape(-1, 1, 3) # we initialize a initial array for poslist
+            self.poslist = 1E100*np.ones(3).reshape(-1, 1, 3) # we initialize a initial array for poslist
         else:
             self.poslist = poslist
         self.timestep = timestep
@@ -129,6 +129,8 @@ class Traj:
         else:
             self._set_propdict("nframes", len(self.poslist))
         return self._get_propdict_value("nframes")
+    def _set_nframes(self):
+        raise RuntimeError('The nframes cannot be set! It can only be get!')
     nframes = property(_get_nframes, doc='The number of frames in current trajectory')
 
     # @Traj_property: timestep
@@ -221,18 +223,29 @@ class Traj:
 
 
     # @Traj_method: periodic boundary condition
-    def _pbc(self):
+    # check whether this function can run properly later%%%%%%%%%%%%%%%%%%
+    def wrap(self):
         '''
         Apply boundary condition in 3 diretions
         '''
-        poslist = np.array(self.poslist)
-        while (poslist>=1).any():
-            id1, id2 = np.where(poslist>=1)
-            poslist[id1, id2] -= 1
-        while (poslist<0).any():
-            id1, id2 = np.where(poslist<0)
-            poslist[id1, id2] +=1
-        self.poslist = poslist
+        eps = 1E-7
+        if self.__direct__:
+            poslist = np.array(self.poslist)
+            poslist += eps
+            poslist %= 1.0
+            poslist -= eps
+            self.poslist = poslist
+        else:
+            # if current coordinate is cartesian coordinate, \
+            # then calculate the corresponding direct coordinate and apply boundary conditions
+            poslist = np.array(self.poslist)
+            transformMattrix = np.linalg.inv(self.cell.lattvec*self.cell.scale)
+            poslist = np.matmul(np.array(poslist), transformMattrix)
+            poslist += eps
+            poslist %= 1.0
+            poslist -= eps
+            poslist = np.matmul(poslist, self.cell.lattvec*self.cell.scale)
+            self.poslist = poslist
 
     # @Traj_method: get trajectory from XDATCAR
     def read_from_XDATCAR(self, file='XDATCAR', skipEvery=1, timestep=1, readConfs=None):

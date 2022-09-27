@@ -188,6 +188,9 @@ class Atom:
                 self.cell, self.latt, self.fix)
         return newatom
     
+    def get_property(self, prop_name: str):
+        return self.get_propdict_value(prop_name)
+
     def repeat(self, rep):
         atom = np.array(self.copy())
         return atom.repeat(rep)

@@ -44,6 +44,9 @@ class hklvector:
             hkl_list = self.get_numbers_fromstr(hkl)
             if len(hkl_list) != 3:
                 raise ValueError('Invalid input!')
+            # big problem here is that actually the normal vector of hkl plane is not h*a1+k*a2+l*a3,
+            # but h*b1+k*b2+l*b3, so I'm not sure whether this will cause further problem here
+            # BUG------------------------------------------------------------------------------------#
             if isinstance(cell, Cell):
                 hkl_vector = hkl_list[0]*cell.lattvec[0]+hkl_list[1]*cell.lattvec[1]+hkl_list[2]*cell.lattvec[2]
             elif isinstance(cell, (list, np.ndarray)):
