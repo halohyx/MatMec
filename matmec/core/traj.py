@@ -1,6 +1,7 @@
 import copy
-from matmec.utils import reader, writer, hklvector
+from matmec.utils import reader, writer
 from matmec.core import Latt, Cell
+from matmec.core.slab import abcvector
 from matmec.tool.latt_tool import periodic_table, get_elements_list_from_poscarString, \
                                   get_formula
 from matmec.tool.mpl_tool import regular_ticks
@@ -329,8 +330,8 @@ class Traj:
         
         return: the 2D cartesian coordinates on the projection plane
         """
-        ob_direc = hklvector(ob_direc, self.cell)
-        x_direc = hklvector(x_direc, self.cell)
+        ob_direc = abcvector(ob_direc, self.cell)
+        x_direc = abcvector(x_direc, self.cell)
         # the 3rd vector comes from the cross of the given two vectors
         y_direc = np.cross(x_direc, ob_direc)
 

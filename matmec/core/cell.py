@@ -1,3 +1,5 @@
+from math import gamma
+from typing import Union
 import numpy as np
 from matmec.tool.cell_tool import simi_judge
 
@@ -18,6 +20,92 @@ class Cell:
             assert(lattvec.shape == (3, 3)), ValueError("The lattice vector should be (3, 3) matrix")
         self.lattvec = lattvec
 
+    # Cell_property: a
+    @property
+    def a(self) -> np.ndarray:
+        '''
+        a of the cell
+        '''
+        return self.lattvec[0]
+
+    # Cell_property: b
+    @property
+    def b(self) -> np.ndarray:
+        '''
+        b of the cell
+        '''
+        return self.lattvec[1]
+
+    # Cell_property: c
+    @property
+    def c(self) -> np.ndarray:
+        '''
+        c of the cell
+        '''
+        return self.lattvec[2]
+    
+    # Cell_property: lengths
+    @property
+    def lengths(self) -> list:
+        '''
+        Lengths of 3 lattice vectors
+        '''
+        return [np.linalg.norm(lattvec) for lattvec in self.lattvec]
+
+    # Cell_property: angles
+    @property
+    def angles(self) -> list:
+        '''
+        Angles between three lattice vectors, return as alpha, beta and gamma
+        '''
+        alpha = np.arccos(np.dot(self.lattvec[0], self.lattvec[1])/(self.a*self.b))/(np.pi/180)
+        beta = np.arccos(np.dot(self.lattvec[1], self.lattvec[2])/(self.b*self.c))/(np.pi/180)
+        gamma = np.arccos(np.dot(self.lattvec[0], self.lattvec[2])/(self.a*self.c))/(np.pi/180)
+        return [alpha, beta, gamma]
+
+    # Cell_property: volume
+    @property
+    def volume(self) -> float:
+        """
+        Volume of the cell.
+        """
+        return float(abs(np.dot(np.cross(self.a, self.b), self.c)))
+
+    # Cell_property: scale
+    def _get_scale(self):
+        return self.get_propdict_value('scale')
+    def _set_scale(self, scale: float):
+        assert(isinstance(scale, (int, float))), 'Scale should be of type int or float'
+        self.set_propdict('scale', scale)
+    scale = property(_get_scale, _set_scale, doc='The scale of the lattice vectors')
+
+    # Cell_property: lattvec
+    def _get_lattvec(self):
+        return self.get_propdict_value('lattvec')
+    def _set_lattvec(self, lattvec: np.ndarray =None):
+        assert(isinstance(lattvec, (tuple, list, np.ndarray))), 'lattvec should be of type list or numpy.ndarray'
+        lattvec = np.array(lattvec, dtype=float).reshape(3, 3)
+        self.set_propdict('lattvec', lattvec)
+    lattvec = property(_get_lattvec, _set_lattvec, doc='The lattice vectors of the cell')
+
+    # Cell_property: reciprocal_lattice
+    @property
+    def reciprocal_lattice(self):
+        a = self.a*self.scale
+        b = self.b*self.scale
+        c = self.c*self.scale
+        b1 = np.cross(b, c)/np.dot(a, np.cross(b, c))
+        b2 = np.cross(c, a)/np.dot(b, np.cross(c, a))
+        b3 = np.cross(a, b)/np.dot(c, np.cross(a, b))
+        return Cell([b1, b2, b3])
+
+    # Cell_property: propdict
+    def get_propdict_value(self, name):
+        return self.propdict.get(name)
+    def set_propdict(self, name, value):
+        self.propdict[name] = value
+
+    # Cell_method: propdict
     def get_len_angle(self):
         '''
         This function calculate the length a,b,c and inter angles of axis a,b,c
@@ -43,30 +131,19 @@ class Cell:
             return 'Orthorhombic'
         else:
             return 'Others'
-
-    # property: scale
-    def _get_scale(self):
-        return self.get_propdict_value('scale')
-    def _set_scale(self, scale: float):
-        assert(isinstance(scale, (int, float))), 'Scale should be of type int or float'
-        self.set_propdict('scale', scale)
-    scale = property(_get_scale, _set_scale, doc='The scale of the lattice vectors')
-
-    # property: lattvec
-    def _get_lattvec(self):
-        return self.get_propdict_value('lattvec')
-    def _set_lattvec(self, lattvec: np.ndarray =None):
-        assert(isinstance(lattvec, (tuple, list, np.ndarray))), 'lattvec should be of type list or numpy.ndarray'
-        lattvec = np.array(lattvec, dtype=float).reshape(3, 3)
-        self.set_propdict('lattvec', lattvec)
-    lattvec = property(_get_lattvec, _set_lattvec, doc='The lattice vectors of the cell')
-
-    # propdict
-    def get_propdict_value(self, name):
-        return self.propdict.get(name)
-    def set_propdict(self, name, value):
-        self.propdict[name] = value
-
+    
+    def is_orthotropic(self):
+        return self.get_cell_shape() == 'Orthorhombic'
+    
+    def get_cartesian_coords(self, 
+                             direct_coords: Union[list, np.ndarray]):
+        direct_coords = np.array(direct_coords, dtype=float).reshape(-1, 3)
+        return np.matmul(direct_coords, self.lattvec)
+    
+    def get_direct_coords(self,
+                          cartesian_coords: Union[list, np.ndarray]):
+        cartesian_coords = np.array(cartesian_coords, dtype=float).reshape(-1, 3)
+        return np.linalg.solve(self.lattvec.T, cartesian_coords).T
 
     def __repr__(self):
         if self.get_cell_shape() == 'Orthorhombic':

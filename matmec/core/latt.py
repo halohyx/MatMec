@@ -1,5 +1,6 @@
 from crypt import methods
 from multiprocessing.sharedctypes import Value
+from turtle import pos
 import warnings
 import os
 import numpy as np
@@ -18,6 +19,7 @@ atoms_propdict = {'elements':'element', 'poslist':'pos', 'fix':'fix', \
 latt_prop = ['cell', 'name', '__direct__', 'propdict', 'natom', 'formula']
 
 
+# BUG methods lacking: 1) merge_sites; 
 
 class Atomlist:
     __name__ = 'matmec.core.Atomlist'
@@ -493,7 +495,10 @@ class Latt:
     def copy(self):
         return deepcopy(self)
 
-    def get_supercell(self, 
+    def merge_sites(self):
+        pass
+
+    def get_supercell(self,
                       supercell: Union[list, np.ndarray]):
         if len(supercell) != 3:
             raise ValueError('Check the input supercell, should be length of 3 and all integers')
@@ -512,6 +517,7 @@ class Latt:
             tmpatomlist = Atomlist()
             for _ in range(dimen):
                 tmpatomlist.append(deepcopy(newatomlist))
+            newatomlist = deepcopy(tmpatomlist)
             del tmpatomlist
             # prepare the toadd_list
             toadd_list = []
