@@ -420,16 +420,18 @@ class Slab(Latt):
     def build_surface(latt, 
                       surfaceBasis, 
                       layers: int):
-        oriented_unit_cell = latt.copy()
+        oriented_unit_cell = latt.copy().get_supercell([2, 2, 2])
         newCell = Cell(surfaceBasis)
         # now the oriented_unit_cell is obtained and saved, by changing the current cell into new cell without
         # modifying the coordinates
         oriented_unit_cell.set_cell(newCell, scaleatoms=False)
-        
+        oriented_unit_cell.merge_sites()
+        oriented_unit_cell.wrap()
+        # generate supercell and wrap all the atoms in, and then merge t
+
         slab = oriented_unit_cell.copy()
-        slab.wrap()
+        
         slab = slab.get_supercell([1, 1, layers])
-        return oriented_unit_cell, slab
 
         # do schimidt orthogonalization to a3
         # in this step, a1 and a2 are not changed, and a3 is only projected onto the direction to the cross \

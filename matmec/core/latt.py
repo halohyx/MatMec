@@ -1,4 +1,5 @@
 from crypt import methods
+from dis import dis
 from multiprocessing.sharedctypes import Value
 from turtle import pos
 import warnings
@@ -226,8 +227,34 @@ class Latt:
 
     def merge_sites(self, 
                     tolerence: float=1E-6):
-        pass
-
+        from scipy.spatial.distance import squareform
+        from scipy.cluster.hierarchy import fcluster, linkage
+        poslist = np.array(self.poslist)
+        if self.get_direct() == True:
+            _, dis_arr = get_distances(poslist, cell=self.cell)
+        else:
+            _, dis_arr = get_distances(poslist, cell=None)
+        # use the clustering algorism in scipy to find atoms to merge
+        clusters = fcluster(linkage(squareform(dis_arr)), 
+                            t=tolerence, 
+                            criterion="distance")
+        newAtomlist = Atomlist()
+        for i in np.unique(clusters):
+            cluster = self.atomlist[np.where(clusters == i)]
+            if len(cluster) == 1:
+                newAtomlist.append(cluster)
+            else:
+                if len(set([ atom.element for atom in cluster])) != 1:
+                    raise ValueError('Atoms to be merged are not with same element, pls check!')
+                else:
+                    # now it's like when those atoms are overlapped at the same site, we will randomly
+                    # choose one to represent them. But all these should be the same element
+                    newAtomlist.append(cluster[0])
+        self.atomlist = newAtomlist
+        for key in self.propdict.keys():
+            if key in atoms_propdict.values():
+                self._update_atom_propdict(key)
+        return self.atomlist
 
     # check overlap
     def check_overlap(self, 
@@ -239,7 +266,7 @@ class Latt:
         overlap with the corresponding atoms in the second index list
         '''
         poslist = np.array(self.poslist)
-        if self.get_direct(True):
+        if self.get_direct() == True:
             _, dis_arr = get_distances(poslist, cell=self.cell)
         else:
             _, dis_arr = get_distances(poslist, cell=None)
@@ -279,6 +306,10 @@ class Latt:
     @atomlist.setter
     def atomlist(self, newatomlist):
         self._atomlist = Atomlist(newatomlist)
+        nowKeys = list(self.propdict.keys())
+        for key in nowKeys:
+            if key in atoms_propdict.keys():
+                del self.propdict[key]
     
 
     # @latt_property: cell
@@ -484,6 +515,9 @@ class Latt:
         
         self.poslist = np.matmul(np.array(self.poslist), transformMattrix)
 
+    def __getitem__(self, idx: int):
+        return self.atomlist[idx]
+
     def __repr__(self) -> str:
         s = ''
         s += 'name: %s\n' % self.name
@@ -494,9 +528,6 @@ class Latt:
 
     def copy(self):
         return deepcopy(self)
-
-    def merge_sites(self):
-        pass
 
     def get_supercell(self,
                       supercell: Union[list, np.ndarray]):

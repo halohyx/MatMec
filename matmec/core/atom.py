@@ -4,6 +4,8 @@ from matmec.tool.latt_tool import periodic_table
 from matmec.core.cell import Cell
 import warnings
 
+atom_propdict = ['element', 'pos', 'fix', 'velocity']
+
 global UPPDATE_ITEM
 UPPDATE_ITEM = {}
 
@@ -203,3 +205,13 @@ class Atom:
     def __mul__(self, rep):
         return self.repeat(rep)
     
+    def __eq__(self, atom: object) -> bool:
+        tol = 1E-6
+        for prop in atom_propdict:
+            if self.get_propdict_value(prop).dtype != bool:
+                if not (abs(self.get_propdict_value(prop) - atom.get_propdict_value(prop)) < tol).all():
+                    return False
+            else:
+                if self.get_propdict_value(prop) != atom.get_propdict_value(prop):
+                    return False
+        return True

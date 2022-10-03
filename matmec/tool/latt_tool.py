@@ -1,4 +1,5 @@
 from multiprocessing.sharedctypes import Value
+from matmec.core.cell import Cell
 import numpy as np
 import json
 import os
@@ -25,6 +26,24 @@ metallic_elements_list = ['Li', 'Be', 'Na', 'Mg', 'Al', 'K', 'Ca', 'Sc', 'Ti', '
 nonmetallic_elements_list = ['H', 'He', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Si', 'P', 'S', 'Cl',
        'Ar', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Sb', 'Te', 'I', 'Xe', 'Po',
        'At', 'Ts', 'Og']
+
+def easy_get_distance(p1, p2=None, isDirect = True, cell=None):
+    '''
+    Return the distance between p1 and p2, with boundary condition applied for direction coordinates condition
+    '''
+    if p2 is None:
+        p2 = p1
+    p1 = p1[:, None, :]
+    p2 = p2[None, :, :]
+    dis = abs(p1 - p2)
+    if isDirect:
+        dis[np.where( dis >= 0.5 )] -= 1
+        if cell is not None:
+            cell = Cell()
+        dis = np.linalg.norm(np.matmul(dis, cell.lattvec*cell.scale), axis=1)
+        return dis
+    else:
+        return np.sum(dis ** 2, axis=-1) ** 0.5
 
 
 def get_distances(p1, p2=None, cell=None):
