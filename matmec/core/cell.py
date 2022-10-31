@@ -2,6 +2,7 @@ from math import gamma
 from typing import Union
 import numpy as np
 from matmec.tool.cell_tool import simi_judge
+from copy import deepcopy
 
 
 class Cell:
@@ -9,6 +10,9 @@ class Cell:
     __name__ = 'matmec.core.Cell' 
 
     def __init__(self, lattvec: np.ndarray =None, scale: float =1.0):
+        '''
+        The Cell class, can be initialized by giving lattvec and scale.
+        '''
         self.propdict = {}
         self.scale = scale
         if lattvec is None:
@@ -73,7 +77,7 @@ class Cell:
 
     # Cell_property: scale
     def _get_scale(self):
-        return self.get_propdict_value('scale')
+        return self._get_propdict_value('scale')
     def _set_scale(self, scale: float):
         assert(isinstance(scale, (int, float))), 'Scale should be of type int or float'
         self.set_propdict('scale', scale)
@@ -81,7 +85,7 @@ class Cell:
 
     # Cell_property: lattvec
     def _get_lattvec(self):
-        return self.get_propdict_value('lattvec')
+        return self._inplace_get_propdict_value('lattvec')
     def _set_lattvec(self, lattvec: np.ndarray =None):
         assert(isinstance(lattvec, (tuple, list, np.ndarray))), 'lattvec should be of type list or numpy.ndarray'
         lattvec = np.array(lattvec, dtype=float).reshape(3, 3)
@@ -100,12 +104,20 @@ class Cell:
         return Cell([b1, b2, b3])
 
     # Cell_property: propdict
-    def get_propdict_value(self, name):
+    def _get_propdict_value(self, name):
+        '''
+        Return the deepcopy of the property
+        '''
+        return deepcopy(self.propdict.get(name))
+    def _inplace_get_propdict_value(self, name):
+        '''
+        Return the property, and that can be inplacely changed
+        '''
         return self.propdict.get(name)
     def set_propdict(self, name, value):
         self.propdict[name] = value
 
-    # Cell_method: propdict
+    # Cell_method: get_len_angle
     def get_len_angle(self):
         '''
         This function calculate the length a,b,c and inter angles of axis a,b,c
@@ -118,6 +130,7 @@ class Cell:
         gamma = np.arccos(np.dot(self.lattvec[0], self.lattvec[2])/(a*c))/(np.pi/180)
         return np.array([a, b, c, alpha, beta, gamma])
     
+    # Cell_method: get_cell_shape
     def get_cell_shape(self, len_tolerence: float=1.5e-2, angle_tolerence: float=1):
         '''
         According to the calculated angles and length, give the related Bravis lattice

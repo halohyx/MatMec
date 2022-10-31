@@ -225,6 +225,7 @@ class Latt:
             poslist = np.matmul(poslist, self.cell.lattvec*self.cell.scale)
             self.poslist = poslist
 
+    #latt_method: to merge sites using the cluster algorism in scipy
     def merge_sites(self, 
                     tolerence: float=1E-6):
         from scipy.spatial.distance import squareform
@@ -314,7 +315,7 @@ class Latt:
 
     # @latt_property: cell
     def _get_cell(self):
-        return self._get_propdict_value('cell')
+        return self._inplace_get_propdict_value('cell')
     def _set_cell(self, cell: Cell):
         '''
         When set cell, the atoms in latt will be changed into cartesian coordinate,\
@@ -372,7 +373,15 @@ class Latt:
 
     # @latt_property: propdict
     def _get_propdict_value(self, name):
+        '''
+        Return the deepcopy of the property
+        '''
         return deepcopy(self.propdict.get(name))
+    def _inplace_get_propdict_value(self, name):
+        '''
+        Return the property, and that can be inplacely changed
+        '''
+        return self.propdict[name]
     def _set_propdict(self, name, value=None):
         if name in atoms_propdict:
             self._update_atom_propdict(name)
@@ -700,7 +709,8 @@ class Latt:
             for i in range(self.natom):
                 for j in poslist[3*i:3*i+3]:
                     s += '\t%.10f\t' % j
-                s += '%s\n' % get_fix_from_string(fix=fixlist[3*i:3*i+3], inverse=True)
+                s += '%s' % get_fix_from_string(fix=fixlist[3*i:3*i+3], inverse=True)
+                s += '%s%s\n' % (self.elements[i], i+1)
         else:
             if self.get_direct():
                 s += 'Direct \n'
@@ -710,8 +720,7 @@ class Latt:
             for i in range(self.natom):
                 for j in poslist[3*i:3*i+3]:
                     s += '\t%.10f\t' % j
-                s += '%s' % self.elements[i]
-                s += '\n'
+                s += '%s%s\n' % (self.elements[i], i+1)
         # if velocity is not all zero, then write velocity as well
         velocity_bool = np.array(self.velocity, dtype=bool)
         write_velocity = velocity_bool.any()
@@ -774,6 +783,7 @@ class Latt:
         self.fix = fixlist
         if topBottom:
             self.set_fix_TopBottom(topBottom_fix, element)
+        self.isSelectiveDynamic = True
     
 
     def move_Part(self, DirectionVec: list, MoveDistance: float, lowlimit: float =-1E100, highlimit: float =1E100):
@@ -839,6 +849,7 @@ class Latt:
 
             for i in range(steps):
                 self.cell.lattvec[Direction] += each_step
+                print(self.cell.lattvec[Direction])
                 self.write_to_poscar('./Tensile_%s_%5.3f.vasp' % (str(i+1), (i+1)*(end_elongation - start_elongation)/steps+start_elongation ))
 
 
