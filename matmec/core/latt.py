@@ -54,11 +54,51 @@ class Atomlist:
         self.atomlist = np.append(self.atomlist, atomlist).reshape(-1)
         return self
     
+    @staticmethod
+    def static_move(atomlist, shiftVector: list or np.ndarray):
+        '''
+        A staticmethod to help move atoms.
+        The most RUDE way to move atoms, be careful about the coordinates, we dont change the coordinates here
+        '''
+        for i in atomlist:
+            i.pos += shiftVector
+    
+    def move(self, idx, shiftVector: list or np.ndarray):
+        '''
+        A built-in method to help move atoms. Move self.atomlist[idx] with shiftVector.
+        The most RUDE way to move atoms, be careful about the coordinates, we dont change the coordinates here
+        Args:
+            idx: see in self.__getitem__
+            shiftVector: a vector that will be directly added onto the atoms selected
+        '''
+        for i in self[idx]:
+            i.pos += shiftVector
+            
     def __add__(self, atomlist):
         return np.append(self.atomlist, atomlist).reshape(-1)
 
-    def __getitem__(self, idx: int):
-        return self.atomlist[idx]
+    def __getitem__(self, idx: int or str):
+        '''
+        You can get part of the atomlist by three ways:
+        1. give the element such as a.atomlist["Al"], then you can get the Al atoms. Or give elements in a list
+        2. give the slices like a numpy array
+        3. give the bool mask
+        '''
+        if isinstance(idx, (list, np.ndarray)) and idx != []:
+            if isinstance(idx[0], str):
+                mask = [ i.element in idx for i in self.atomlist]
+                return self.atomlist[mask]
+            else:
+                '''
+                Including the Bool and int type of list
+                '''
+                return self.atomlist[idx]
+        else:
+            if isinstance(idx, str):
+                mask = [ i.element == idx for i in self.atomlist]
+                return self.atomlist[mask]
+            else:
+                return self.atomlist[idx]
     
     def __len__(self) -> int:
         '''Length of the atomlist'''
@@ -333,14 +373,14 @@ class Latt:
         else:
             self._set_propdict('cell', None)
     def set_cell(self, 
-                 lattvec: np.array =None, 
+                 lattvec: np.ndarray =None, 
                  scale: float =1.0, 
                  scaleatoms=False):
         '''
         Set the cell of current latt instance.
         Args:
             lattvec: the lattice vectors of new cell. Or can be given as another Cell instance.
-            scale: only works when lattvec is given as lattive vectors. Scale of the cell.
+            scale: only works when lattvec is given as lattive vectors not the Cell instance. Scale of the cell.
             scaleatoms: whether to change the cartesian coordinates of atoms, or scale the position \
                 of atoms using the direct coordinates of atoms in the new cell.
         '''

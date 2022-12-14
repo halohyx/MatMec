@@ -159,8 +159,17 @@ class Cell:
         return np.linalg.solve(self.lattvec.T, cartesian_coords).T
 
     def __repr__(self):
+        '''
+        The Cell class.
+        '''
         if self.get_cell_shape() == 'Orthorhombic':
             [a, b, c, alpha, beta, gamma] = self.get_len_angle()
             return 'Orthorhombic Cell([%s, %s, %s])' % (a, b, c)
         else:
             return 'Cell(%s)' % self.lattvec.tolist()
+    
+    def copy(self):
+        '''
+        Get the copy of this Cell itself.
+        '''
+        return deepcopy(self)

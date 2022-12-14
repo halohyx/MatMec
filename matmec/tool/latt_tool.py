@@ -48,7 +48,8 @@ def easy_get_distance(p1, p2=None, isDirect = True, cell=None):
 
 def get_distances(p1, p2=None, cell=None):
     '''
-    Return the distance in [x,y,z] and cartesian distance with different positions.\n
+    Return the distance in [x,y,z] and cartesian distance with different atoms index.\n
+    the output arrays can be used like, output[i, j] -> the distance of atom i and j in [xi-xj, yi-yj, zi-zj] or cartesian distance
     1) p1: position list 1. If p2 is not implemented, p1 is calculated with itself
     2) p2: position list 2, default is None.
     3) Cell object.
