@@ -1,6 +1,6 @@
 from multiprocessing.sharedctypes import Value
-import numpy as np
 from matmec.core.cell import Cell
+import numpy as np
 import json
 import os
 
@@ -27,14 +27,34 @@ nonmetallic_elements_list = ['H', 'He', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Si', 'P'
        'Ar', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Sb', 'Te', 'I', 'Xe', 'Po',
        'At', 'Ts', 'Og']
 
+def easy_get_distance(p1, p2=None, isDirect = True, cell=None):
+    '''
+    Return the distance between p1 and p2, with boundary condition applied for direction coordinates condition
+    '''
+    if p2 is None:
+        p2 = p1
+    p1 = p1[:, None, :]
+    p2 = p2[None, :, :]
+    dis = abs(p1 - p2)
+    if isDirect:
+        dis[np.where( dis >= 0.5 )] -= 1
+        if cell is not None:
+            cell = Cell()
+        dis = np.linalg.norm(np.matmul(dis, cell.lattvec*cell.scale), axis=1)
+        return dis
+    else:
+        return np.sum(dis ** 2, axis=-1) ** 0.5
+
 
 def get_distances(p1, p2=None, cell=None):
     '''
-    Return the distance in [x,y,z] and cartesian distance with different positions.\n
+    Return the distance in [x,y,z] and cartesian distance with different atoms index.\n
+    the output arrays can be used like, output[i, j] -> the distance of atom i and j in [xi-xj, yi-yj, zi-zj] or cartesian distance
     1) p1: position list 1. If p2 is not implemented, p1 is calculated with itself
     2) p2: position list 2, default is None.
     3) Cell object.
     '''
+    from matmec.core.cell import Cell
     # make p1 and p2 2d matrix in case they contain only one element
     # consider the following operation as matrix operation but with each element to be a vector(position, length 3)
     p1 = np.atleast_2d(p1)
@@ -116,7 +136,7 @@ def get_diff_index(arr1, arr2, tolerence: float=1E-6):
     return id
 
 
-def get_numbers_instr(name: str, index: int) -> int:
+def get_numbers_afterIndex(name: str, index: int) -> int:
     '''
     give a name, return the numbers following the given index
     '''
@@ -155,7 +175,7 @@ def check_formula(formula_name: str) -> dict:
         if i < len(upperList) - 1:
             if formula_name[j] in periodic_table:
                 if formula_name[j:j+2] in periodic_table:
-                    numbers_after_ele = get_numbers_instr(formula_name, j+1)
+                    numbers_after_ele = get_numbers_afterIndex(formula_name, j+1)
                     if numbers_after_ele == 0:
                         formula['%s' % formula_name[j:j+2]] = 1
                         continue
@@ -165,7 +185,8 @@ def check_formula(formula_name: str) -> dict:
                     else:
                         continue
                 else:
-                    numbers_after_ele = get_numbers_instr(formula_name, j+1)
+                    numbers_after_ele = get_numbers_afterIndex(formula_name, j)
+                    print(numbers_after_ele)
                     if numbers_after_ele == 0:
                         formula['%s' % formula_name[j]] = 1
                         continue
@@ -173,7 +194,7 @@ def check_formula(formula_name: str) -> dict:
                         formula['%s' % formula_name[j]] = int(formula_name[j+1:j+1+numbers_after_ele])
                         continue
             if formula_name[j:j+2] in periodic_table:
-                numbers_after_ele = get_numbers_instr(formula_name, j+1)
+                numbers_after_ele = get_numbers_afterIndex(formula_name, j+1)
                 if numbers_after_ele == 0:
                     formula['%s' % formula_name[j:j+2]] = 1
                     continue
@@ -192,7 +213,7 @@ def check_formula(formula_name: str) -> dict:
             else:
                 if formula_name[j] in periodic_table:
                     if formula_name[j:j+2] in periodic_table:
-                        numbers_after_ele = get_numbers_instr(formula_name, j+1)
+                        numbers_after_ele = get_numbers_afterIndex(formula_name, j+1)
                         if numbers_after_ele == 0:
                             formula['%s' % formula_name[j:j+2]] = 1
                             continue
@@ -202,7 +223,7 @@ def check_formula(formula_name: str) -> dict:
                         else:
                             continue
                     else:
-                        numbers_after_ele = get_numbers_instr(formula_name, j)
+                        numbers_after_ele = get_numbers_afterIndex(formula_name, j)
                         if numbers_after_ele == 0:
                             formula['%s' % formula_name[j]] = 1
                             continue
@@ -210,7 +231,7 @@ def check_formula(formula_name: str) -> dict:
                             formula['%s' % formula_name[j]] = int(formula_name[j+1:j+1+numbers_after_ele])
                             continue
                 elif formula_name[j:j+2] in periodic_table:
-                    numbers_after_ele = get_numbers_instr(formula_name, j+1)
+                    numbers_after_ele = get_numbers_afterIndex(formula_name, j+1)
                     if numbers_after_ele == 0:
                         formula['%s' % formula_name[j:j+2]] = 1
                         continue

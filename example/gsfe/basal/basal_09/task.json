@@ -1,0 +1,12 @@
+{
+    "command": "source /opt/intel/oneapi/setvars.sh --force && mpirun -np 64 vasp_std",
+    "task_work_path": "basal_09",
+    "forward_files": [
+        "../basal_09"
+    ],
+    "backward_files": [
+        "../basal_09"
+    ],
+    "outlog": "vasp.log",
+    "errlog": "vasp.err"
+}
