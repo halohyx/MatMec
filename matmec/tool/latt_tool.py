@@ -1,6 +1,7 @@
 from multiprocessing.sharedctypes import Value
 from matmec.core.cell import Cell
 import numpy as np
+from time import time
 import json
 import os
 
@@ -27,10 +28,17 @@ nonmetallic_elements_list = ['H', 'He', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Si', 'P'
        'Ar', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Sb', 'Te', 'I', 'Xe', 'Po',
        'At', 'Ts', 'Og']
 
-def easy_get_distance(p1, p2=None, isDirect = True, cell=None):
+def easy_get_distance(p1, p2=None, isDirect = True, cell=None, verbose=True):
     '''
     Return the distance between p1 and p2, with boundary condition applied for direction coordinates condition
     '''
+    t0 = time()
+    if verbose:
+        print('Calculating the distance matrix', end=' ... ')
+    if hasattr(p1, "cell"):
+        cell = p1.cell.copy()
+        isDirect = p1.get_direct()
+        p1 = np.array(p1.poslist)
     if p2 is None:
         p2 = p1
     p1 = p1[:, None, :]
@@ -38,15 +46,19 @@ def easy_get_distance(p1, p2=None, isDirect = True, cell=None):
     dis = abs(p1 - p2)
     if isDirect:
         dis[np.where( dis >= 0.5 )] -= 1
-        if cell is not None:
+        if cell is None:
             cell = Cell()
-        dis = np.linalg.norm(np.matmul(dis, cell.lattvec*cell.scale), axis=1)
+        dis = np.linalg.norm(np.matmul(dis, cell.lattvec*cell.scale), axis=2)
+        if verbose:
+            print(f'Done in {time()-t0:.3f} sec')
         return dis
     else:
+        if verbose:
+            print(f'Done in {time()-t0:.3f} sec')
         return np.sum(dis ** 2, axis=-1) ** 0.5
 
 
-def get_distances(p1, p2=None, cell=None):
+def get_distances(p1, p2=None, cell=None, verbose=True):
     '''
     Return the distance in [x,y,z] and cartesian distance with different atoms index.\n
     the output arrays can be used like, output[i, j] -> the distance of atom i and j in [xi-xj, yi-yj, zi-zj] or cartesian distance
@@ -57,6 +69,12 @@ def get_distances(p1, p2=None, cell=None):
     from matmec.core.cell import Cell
     # make p1 and p2 2d matrix in case they contain only one element
     # consider the following operation as matrix operation but with each element to be a vector(position, length 3)
+    if hasattr(p1, "cell"):
+        cell = p1.cell.copy()
+        p1 = np.array(p1.poslist)
+    t0 = time()
+    if verbose:
+        print('Calculating the distance matrix', end=' ... ')
     p1 = np.atleast_2d(p1)
     assert(p1.shape[-1] == 3), "Each element in p1 should be position like, such as [0, 0, 0]"
     pbc = True
@@ -100,10 +118,14 @@ def get_distances(p1, p2=None, cell=None):
         Dout_len = np.zeros((len(p1), len(p1)))
         Dout_len[id1, id2] = D_len
         Dout_len[id2, id1] = D_len
+        if verbose:
+            print(f'Done in {time()-t0:.3f} sec')
         return Dout, Dout_len
     else:
         D = D.reshape(-1, len(p2), 3)
         D_len = D_len.reshape(len(p1), len(p2))
+        if verbose:
+            print(f'Done in {time()-t0:.3f} sec')
         return D, D_len
 
 def get_ele_num_list(ele_list):
