@@ -14,7 +14,7 @@ from matmec.tool.latt_tool import get_distances, complete_arr, get_diff_index, \
                                 periodic_table, check_formula, get_formula, \
                                 get_elements_list_fromformula, get_elements_list_from_poscarString,\
                                 get_poslist_from_poscarstring, get_fix_from_string,\
-                                easy_get_distance
+                                easy_get_distance, simplified_get_distance
                                 
 
 atoms_propdict = {'elements':'element', 'poslist':'pos', 'fix':'fix', \
@@ -418,12 +418,12 @@ class Latt:
         '''
         Return the deepcopy of the property
         '''
-        return deepcopy(self.propdict.get(name))
+        return deepcopy(self.propdict.get(name, None))
     def _inplace_get_propdict_value(self, name):
         '''
         Return the property, and that can be inplacely changed
         '''
-        return self.propdict[name]
+        return self.propdict.get(name, None)
     def _set_propdict(self, name, value=None):
         if name in atoms_propdict:
             self._update_atom_propdict(name)
@@ -627,12 +627,38 @@ class Latt:
         '''
 
         if verbose:
-            print(f"Creating neighbor matrix for total {self.natom} atoms", end=' ... \n')
+            print(f"Generating neighbor matrix for total {self.natom} atoms", end=' ... \n')
             t0 = time()
 
+        ndim = 27
         max_n = max_neigh + 1
-        dis_mat = easy_get_distance(self, verbose=verbose)
+
+        if verbose:
+            print(f"Generating distance matrix for total {self.natom} atoms", end=' ... ')
+
+        direct_translation_vectors = [[ 0, 0, 0],[ 1, 0, 0],[-1, 0, 0],[ 0, 1, 0],[ 0,-1, 0],[ 1, 1, 0],[-1,-1, 0],[ 1,-1, 0],[-1, 1, 0],
+                                    [ 0, 0, 1],[ 1, 0, 1],[-1, 0, 1],[ 0, 1, 1],[ 0,-1, 1],[ 1, 1, 1],[-1,-1, 1],[ 1,-1, 1],[-1, 1, 1],
+                                    [ 0, 0,-1],[ 1, 0,-1],[-1, 0,-1],[ 0, 1,-1],[ 0,-1,-1],[ 1, 1,-1],[-1,-1,-1],[ 1,-1,-1],[-1, 1,-1]]
+        
+        # the ndim number of matrix for translate the current cell to all the periodic equivalent position, for 3D there are 27
+        translation_matrix = np.array([ vec*self.natom for vec in direct_translation_vectors[:ndim] ]).reshape(ndim, self.natom, 3)
+
+        # the translated position, for 3D there are 27 sets
+        allPos = np.tile(self.poslist.flatten(), ndim).reshape(ndim, -1, 3)
+        allPos = allPos - translation_matrix
+
+        # get the cartesian positions of all periodic equivalent cells
+        cell = self.cell.lattvec*self.cell.scale
+        allCartPos = np.matmul(allPos, cell)
+
+        # get the distance matrixes for the original cell and all the equivalent cells, and take the minimum at the same position
+        # of all the distance matrixes
+        large_distance_mat = np.array([ simplified_get_distance(allCartPos[0], CardPos) for CardPos in allCartPos])
+        dis_mat = np.minimum.reduce(large_distance_mat, axis=0)
         dis_mat = np.round(dis_mat, 3)
+
+        if verbose:
+            print(f"Done in {time()-t0:.3f} sec")
 
         # all the type of distances in the system. Use this to judge which nearest neighbor shell the atom pairs belong to
         neigh_dis_list = np.unique(dis_mat.ravel())[:max_n]
@@ -647,7 +673,7 @@ class Latt:
         self.neigh_mat = neigh_mat
 
         if verbose:
-            print(f"Done creating neighbor matrix in {time()-t0:.3f} sec")
+            print(f"Done generating neighbor matrix in {time()-t0:.3f} sec")
             
         return neigh_mat
 
@@ -655,6 +681,12 @@ class Latt:
     def read_from_poscar(cls, 
                          file: os.path='./POSCAR'
                          ):
+        '''
+        Read structure from POSCAR format file
+        Parameters:
+        file: default: './POSCAR', a path like string pointing to the location of the POSCAR file.
+        return: a Latt class containg the information of the POSCAR file.
+        '''
         if os.path.isfile('%s' % file):
             poscar = cls()
             with open(file, 'r') as f:

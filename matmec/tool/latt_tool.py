@@ -28,9 +28,30 @@ nonmetallic_elements_list = ['H', 'He', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Si', 'P'
        'Ar', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Sb', 'Te', 'I', 'Xe', 'Po',
        'At', 'Ts', 'Og']
 
+def simplified_get_distance(p1, p2):
+    '''
+    Most simplified version of get distance, return the direct result of distance of each position in p1 \
+    and each position in p2
+    Parameters:
+    p1: an numpy array
+    p2: an numpy array
+    return: return the distance matrix between p1 and p2
+    '''
+    p1 = p1[:, None, :]
+    p2 = p2[None, :, :]
+    dis = p1 - p2
+    return np.sum(dis ** 2, axis=-1) ** 0.5
+
 def easy_get_distance(p1, p2=None, isDirect = True, cell=None, verbose=True):
     '''
     Return the distance between p1 and p2, with boundary condition applied for direction coordinates condition
+    Parameters:
+    p1: an numpy array
+    p2: default: p1, an numpy array
+    isDirect: whether you are giving the position in a direct manner
+    cell: needed when isDirect is True, used to transform the direct coordinates you gave to cartisian coordinates
+    verbose: whether the output is verbose or not
+    return: return the distance matrix between p1 and p2
     '''
     t0 = time()
     if verbose:
@@ -46,6 +67,7 @@ def easy_get_distance(p1, p2=None, isDirect = True, cell=None, verbose=True):
     dis = abs(p1 - p2)
     if isDirect:
         dis[np.where( dis >= 0.5 )] -= 1
+        # dis %= 0.5
         if cell is None:
             cell = Cell()
         dis = np.linalg.norm(np.matmul(dis, cell.lattvec*cell.scale), axis=2)
