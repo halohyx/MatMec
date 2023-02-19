@@ -3,6 +3,7 @@ from dis import dis
 from multiprocessing.sharedctypes import Value
 from turtle import pos
 import warnings
+from time import time
 import os
 import numpy as np
 from .cell import Cell
@@ -12,7 +13,8 @@ from typing import Union
 from matmec.tool.latt_tool import get_distances, complete_arr, get_diff_index, \
                                 periodic_table, check_formula, get_formula, \
                                 get_elements_list_fromformula, get_elements_list_from_poscarString,\
-                                get_poslist_from_poscarstring, get_fix_from_string
+                                get_poslist_from_poscarstring, get_fix_from_string,\
+                                easy_get_distance
                                 
 
 atoms_propdict = {'elements':'element', 'poslist':'pos', 'fix':'fix', \
@@ -613,6 +615,41 @@ class Latt:
                 tmpLatt._update_atom_propdict(key)
         # tmpLatt.wrap()
         return tmpLatt
+
+    def get_neighbor_matrix(self,
+                          max_neigh = 3,
+                          verbose = True):
+        '''
+        Return the neighbor list of current system.
+        Parameters:
+        max_neigh: default: 3, define which the max nearest neighbor shell
+        verbose: default: True, whether to output the information in a verbose way.
+        '''
+
+        if verbose:
+            print(f"Creating neighbor matrix for total {self.natom} atoms", end=' ... \n')
+            t0 = time()
+
+        max_n = max_neigh + 1
+        dis_mat = easy_get_distance(self, verbose=verbose)
+        dis_mat = np.round(dis_mat, 3)
+
+        # all the type of distances in the system. Use this to judge which nearest neighbor shell the atom pairs belong to
+        neigh_dis_list = np.unique(dis_mat.ravel())[:max_n]
+        if len(neigh_dis_list)<max_n: max_n=len(neigh_dis_list)
+
+        neigh_mat = np.zeros((self.natom, self.natom))
+        for m in range(1, max_n):
+            neigh_indice = np.where(np.logical_and(dis_mat <= neigh_dis_list[m], neigh_mat == 0))
+            neigh_mat[neigh_indice] = m
+
+        neigh_mat[np.diag_indices(self.natom)] = 0
+        self.neigh_mat = neigh_mat
+
+        if verbose:
+            print(f"Done creating neighbor matrix in {time()-t0:.3f} sec")
+            
+        return neigh_mat
 
     @classmethod
     def read_from_poscar(cls, 
