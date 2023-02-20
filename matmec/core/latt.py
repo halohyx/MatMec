@@ -48,9 +48,14 @@ class Atomlist:
             self._atomlist = newatomlist
     
     def get_atom_property(self, atom_property):
+        '''
+        Method to get the list of properties for all atoms in the atomlist
+        Parameter:
+        atom_property: the property name of the atom class
+        '''
         atom_property_list = []
         for atom in self.atomlist:
-            atom_property_list.append(atom)
+            atom_property_list.append(atom.get_property(atom_property))
 
     def append(self, atomlist):
         self.atomlist = np.append(self.atomlist, atomlist).reshape(-1)
@@ -418,7 +423,10 @@ class Latt:
         '''
         Return the deepcopy of the property
         '''
+        if name not in self.propdict and name in atoms_propdict:
+            self._update_atom_propdict(name)
         return deepcopy(self.propdict.get(name, None))
+        
     def _inplace_get_propdict_value(self, name):
         '''
         Return the property, and that can be inplacely changed
@@ -459,7 +467,10 @@ class Latt:
         2) when newarr has shorter length than current atomlist, extra atoms in atomlist will be deleted. Then follow 1)
         3) when newarr has longer length than current atomlist, extra atoms will be created following the copy of the last atom in atomlist. Then follow 1)
         '''
-        newarr = np.atleast_2d(newarr)
+        if name in ["elements"]:
+            newarr = np.array(newarr)
+        else:
+            newarr = np.atleast_2d(newarr)
         if len(newarr) != len(self.atomlist):
             # 创建新的原子或删除现在的部分原子
             if len(newarr) < len(self.atomlist):
@@ -518,6 +529,8 @@ class Latt:
         return self._atom_prop_getter('elements')
     def _set_elements(self, elements):
         self._atom_prop_setter('elements', elements)
+        newName = ''.join(np.unique(elements))
+        self.set_name(newName)
     elements = property(_get_elements, _set_elements, doc='elements list of this Latt')
 
 
