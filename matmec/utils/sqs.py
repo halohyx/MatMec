@@ -263,12 +263,10 @@ class SQS:
 
             # compute the pair correlation
             tmp_corr_mat = self._compute_pair_corr(tmp_occup_array)
-
-            # compute the difference of the curren corr_mat and refrence corr_mat
-            delta_corr = get_delta_corr(tmp_corr_mat)
-
             ave_corr_list = get_ave_corr(tmp_corr_mat)
-            ave_dcorr_list = get_ave_corr(delta_corr)
+            
+            # compute the difference of the curren corr_mat and refrence corr_mat
+            ave_dcorr_list = get_delta_corr(tmp_corr_mat)
 
             if verbose:
                 mcorr_str = '  |  '.join([ f'{corr: 12.6e}' for corr in ave_corr_list])
@@ -276,7 +274,7 @@ class SQS:
                 print(f'    {iterationNum:8d}   |  {mcorr_str}  |  {delta_corr_str}',end='')
 
             # if converged, iteration finish
-            if np.all(delta_corr_str <= self.conv_thr):
+            if np.all(ave_dcorr_list <= self.conv_thr):
 
                 # sqsLatt is the final structure
                 self.sqsLatt = deepcopy(self.oriLatt)
@@ -288,7 +286,7 @@ class SQS:
                     sub_ele = list(self.comp_atom_dict.keys())[int(occup_array[i]-1)]
                     sub_ele_list.append(sub_ele)
                 new_ele_list[self.sublat_indice] = sub_ele_list
-                
+
                 self.sqsLatt.elements = new_ele_list
 
             pass
