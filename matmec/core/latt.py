@@ -328,8 +328,8 @@ class Latt:
 
     # sort
     def sort(self):
-        elements = self.elements
-        ele_num_list = np.array([periodic_table[ele] for ele in elements])
+        elements = deepcopy(self.elements)
+        ele_num_list = np.array([periodic_table[ele]["AtomicNumber"] for ele in elements])
         sorted_index = ele_num_list.argsort()
         self.atomlist = self.atomlist[sorted_index]
         for atom_prop in atoms_propdict.keys():
@@ -595,6 +595,7 @@ class Latt:
 
     def get_supercell(self,
                       supercell: Union[list, np.ndarray]):
+        # BUG here
         if len(supercell) != 3:
             raise ValueError('Check the input supercell, should be length of 3 and all integers')
         for i in supercell:
@@ -608,24 +609,31 @@ class Latt:
         newatomlist = Atomlist(tmpLatt.atomlist)
         for i, dimen in enumerate(supercell):
             oldlen = len(newatomlist)
+
             # duplicate the newatomlist in desired dimention
             tmpatomlist = Atomlist()
             for _ in range(dimen):
                 tmpatomlist.append(deepcopy(newatomlist))
             newatomlist = deepcopy(tmpatomlist)
             del tmpatomlist
+
             # prepare the toadd_list
             toadd_list = []
             for j in range(2, dimen+1):
                 toadd_list.append([(j-1)/dimen]*oldlen)
             toadd_list = np.array(toadd_list).reshape(-1)
+
             # for each new created atom, add corresponding value onto it
             for atom, toadd in zip(newatomlist[oldlen:], toadd_list):
                 atom.pos[i] += toadd
+
         tmpLatt.atomlist = newatomlist
         for key in tmpLatt.propdict.keys():
             if key in atoms_propdict:
                 tmpLatt._update_atom_propdict(key)
+
+        tmpLatt.sort()
+
         # tmpLatt.wrap()
         return tmpLatt
 
@@ -811,6 +819,8 @@ class Latt:
             for j in i:
                 s += '%.10f\t' % j
             s += '\n'
+        # 后面改一下 不要sort这么多次
+        self.sort()
         formula_dict = get_formula(self.elements)[1]
         for i in formula_dict.keys():
             s += '    %s  ' % i

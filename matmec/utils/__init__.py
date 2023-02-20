@@ -3,6 +3,8 @@ from pathlib import PurePath
 import numpy as np
 from matmec.core import Cell
 
+from .sqs import SQS
+
 class iofunction:
     '''
     Decorator, To make a reader or write accept either string or a file descriptor
