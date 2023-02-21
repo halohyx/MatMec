@@ -189,7 +189,7 @@ class SQS:
         The reference pair correlation.
         Ideally, one element with concentration X should have pair correlation of X**2 
         '''
-        ref_corr_list = list(self.real_conc_list/100 ** 2)
+        ref_corr_list = list((self.real_conc_list/100) ** 2)
         ref_corr_mat = np.array(ref_corr_list * self.maxNeigh).reshape(len(self.comp_atom_list), self.maxNeigh)
         self.ref_corr_mat = ref_corr_mat
         return ref_corr_mat
@@ -228,34 +228,91 @@ class SQS:
     def iterate_sqs(self,
                     maxIteration: int = 1000,
                     verbose: bool = True):
-
+        '''
+        Start the iteration for generating SQS geometry, final SQS geometry will be stored at self.sqsLatt.
+        A convergence cretiria between 1E-5 and 1E-6 is recommanded.
+        Parameters:
+        maxIteration: the max iteration program will perform.
+        '''
+        # BUG BUG BUG Bring in the atoms swap method next time.
+        # generate the neighbor matrix if its currently not here
         if not hasattr(self, "neigh_mat"):
             self.generate_neighbor_matrix()
-        
-        # the initial occupation array
-        self.occup_array = self._generate_random_occupation(self.comp_atom_list)
+
+        self.converge = False
 
         if verbose:
+            print()
             print("Starting iteration for the bese SQS")
+            print()
 
-        ref_corr_mat = self._compute_ref_corr_mat()
-
+        # define some helper function
         def get_ave_corr(corr_mat):
             return np.mean(corr_mat, axis=0)
 
         def get_delta_corr(corr_mat):
             return np.mean((corr_mat-ref_corr_mat)**2, axis=0)
+        
+        def generate_sqs_latt(latt, occup_array, sublat_indice, elementTypes):
+            # generate the substitution elements list
+            new_ele_list = np.array(latt.elements)
+            sub_ele_list = []
+            for i in range(self.natom):
+                sub_ele = elementTypes[int(occup_array[i]-1)]
+                sub_ele_list.append(sub_ele)
+            new_ele_list[sublat_indice] = sub_ele_list
+
+            latt.elements = new_ele_list
+            return new_ele_list
+
+        def generate_best_sqs_dict(step, dcorr_sum, occup_array, corr_mat, dcorr_list):
+            best_sqs_dict = {}
+            best_sqs_dict["step"] = step
+            best_sqs_dict["dcorr_sum"] = dcorr_sum
+            best_sqs_dict["occup_array"] = occup_array
+            best_sqs_dict["corr_mat"] = corr_mat
+            best_sqs_dict["dcorr_list"] = dcorr_list
+            return best_sqs_dict
+
+        # generate the reference corr mat
+        ref_corr_mat = self._compute_ref_corr_mat()
+
+        # initialize the best_sqs_dict, if found a better sqs, will store in best_sqs_dict
+        # will store all the information in a dictionary best_sqs_dict
+        best_sqs_dict = {}
+
+        init_occup_array = self._generate_random_occupation(self.comp_atom_list)
+        init_corr_mat = self._compute_pair_corr(init_occup_array)
+        ave_dcorr_list =  get_delta_corr(init_corr_mat)
+        dcorr_sum = ave_dcorr_list.sum()    
+
+        best_sqs_dict = generate_best_sqs_dict(step=0, 
+                                               dcorr_sum=dcorr_sum, 
+                                               occup_array=init_occup_array, 
+                                               corr_mat=init_corr_mat, 
+                                               dcorr_list=ave_dcorr_list)
+
+        if verbose:
+            ref_corr_string = ', '.join([f'{i:12.6e}' for i in ref_corr_mat[:, 0]])
+            print(f"Targeting reference pair correlation: {ref_corr_string}")
+
+            conv_thr_string = ', '.join([f'{i:12.6e}' for i in self.conv_thr])
+            print(f'AveDCorr convergence criteria : {conv_thr_string}')
 
         iterationNum = -1
 
         if verbose:
-            conv_str = '     |     '.join([f'AveCorr. {str(m+1)}' for m in range(self.maxNeigh)])
-            delta_conv_str = '     |     '.join([f'AvedCorr. {str(m+1)}' for m in range(self.maxNeigh)])
+            AveCorr_title = '    |    '.join([f'AveCorr.{str(m+1)}' for m in range(self.maxNeigh)])
+            AveDCorr_title = '    |    '.join([f'AveDCorr.{str(m+1)}' for m in range(self.maxNeigh)])
             print()
-            print(f'        step   |     {conv_str}     |     {delta_conv_str}')
+            print(f'        step   |    {AveCorr_title}    |    {AveDCorr_title}')
 
         while iterationNum < maxIteration:
-
+            '''
+            Two ways to end the iteration
+            1): the max iteration reached, then the structure with smallest delta corr will be regarded as final structure
+            2): the iteration converged, the structure with delta corr below the threshold found
+            '''
             iterationNum += 1
             
             # generate one random structure
@@ -267,11 +324,12 @@ class SQS:
             
             # compute the difference of the curren corr_mat and refrence corr_mat
             ave_dcorr_list = get_delta_corr(tmp_corr_mat)
+            dcorr_sum = ave_dcorr_list.sum()
 
             if verbose:
-                mcorr_str = '  |  '.join([ f'{corr: 12.6e}' for corr in ave_corr_list])
-                delta_corr_str = '   |  '.join([ f'{dcorr: 12.6e}' for dcorr in ave_dcorr_list])
-                print(f'    {iterationNum:8d}   |  {mcorr_str}  |  {delta_corr_str}',end='')
+                meanAveCorr_str = '  |  '.join([ f'{corr: 12.6e}' for corr in ave_corr_list])
+                meanAveDcorr_str = '   |  '.join([ f'{dcorr: 12.6e}' for dcorr in ave_dcorr_list])
+                print(f'    {iterationNum:8d}   |  {meanAveCorr_str}  |  {meanAveDcorr_str}',end='')
 
             # if converged, iteration finish
             if np.all(ave_dcorr_list <= self.conv_thr):
@@ -279,14 +337,65 @@ class SQS:
                 # sqsLatt is the final structure
                 self.sqsLatt = deepcopy(self.oriLatt)
 
-                # generate the substitution elements list
-                new_ele_list = np.array(self.sqsLatt.elements)
-                sub_ele_list = []
-                for i in range(self.natom):
-                    sub_ele = list(self.comp_atom_dict.keys())[int(occup_array[i]-1)]
-                    sub_ele_list.append(sub_ele)
-                new_ele_list[self.sublat_indice] = sub_ele_list
-
+                new_ele_list = generate_sqs_latt(latt = self.sqsLatt, 
+                                                 occup_array = tmp_occup_array, 
+                                                 sublat_indice = self.sublat_indice, 
+                                                 elementTypes = list(self.comp_atom_dict.keys()))
                 self.sqsLatt.elements = new_ele_list
 
-            pass
+                # asign self.converge as True   
+                self.converge = True
+
+                if verbose:
+                    print(" <--- Reached required criteria")
+                break
+
+            else:
+                if dcorr_sum < best_sqs_dict["dcorr_sum"]:
+                    # if new configuration has lower dCorr, then substitube the best sqs one
+                    best_sqs_dict = generate_best_sqs_dict(step=iterationNum, 
+                                                           dcorr_sum=dcorr_sum, 
+                                                           occup_array=tmp_occup_array, 
+                                                           corr_mat=tmp_corr_mat, 
+                                                           dcorr_list=ave_dcorr_list)
+                if verbose:
+                    print()
+            
+        if self.converge:
+            if verbose:
+                print()
+                print(f'***Iteration converged at step {iterationNum}')
+
+                print(f"***Final average correlation and average delta up to {self.maxNeigh} neighbor levels:")
+                print(f'        step   |    {AveCorr_title}    |    {AveDCorr_title}')
+                print(f'    {iterationNum:8d}   |  {meanAveCorr_str}  |  {meanAveDcorr_str}',end='')
+
+                print()
+                print(f'***Final SQS geometry stored at sqsLatt')
+                print()
+        else:
+            # if not converged, will output the currently the best one
+            if verbose:
+                print()
+                print(f'***ATTENTION! Iteration not converged, the best one at step {best_sqs_dict["step"]} (total {maxIteration} steps) will be used')
+
+                print(f'        step   |    {AveCorr_title}    |    {AveDCorr_title}')
+                meanAveDcorr_str = '   |  '.join([ f'{dcorr: 12.6e}' for dcorr in best_sqs_dict["dcorr_list"]])
+                ave_corr_list = get_ave_corr(best_sqs_dict["corr_mat"])
+                meanAveCorr_str = '  |  '.join([ f'{corr: 12.6e}' for corr in ave_corr_list])
+                print(f'    {best_sqs_dict["step"]:8d}   |  {meanAveCorr_str}  |  {meanAveDcorr_str}',end='\n')
+
+                print(f'***All information about the best_sqs_dict is stored at best_sqs_dict')
+                print()
+                print(f'***Final SQS geometry stored at sqsLatt')
+                print()
+
+            # store the best_sqs_dict, and generate the final sqsLatt
+            self.best_sqs_dict = best_sqs_dict
+            self.sqsLatt = deepcopy(self.oriLatt)
+
+            new_ele_list = generate_sqs_latt(latt = self.sqsLatt, 
+                                             occup_array = best_sqs_dict["occup_array"], 
+                                             sublat_indice = self.sublat_indice, 
+                                             elementTypes = list(self.comp_atom_dict.keys()))            
+            self.sqsLatt.elements = new_ele_list
