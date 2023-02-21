@@ -10,7 +10,6 @@ class SQS:
                  latt = None,
                  maxNeigh: int = 2,
                  conv_thr: float =1e-5) -> None:
-        # BUG 这里加功能，要么直接给latt，或者sqs也可以直接read from poscar然后返回一个sqs对象
         if np.isscalar(conv_thr):
             self.conv_thr = np.ones(maxNeigh)*conv_thr
         else:
