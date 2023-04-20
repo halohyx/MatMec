@@ -791,16 +791,18 @@ class Latt:
             raise ValueError('Please ensure the validity of file path.')
 
     def write_to_poscar(self, 
-                        file: str='POSCAR'):
+                        file: str='POSCAR',
+                        ifsort: bool=True):
         '''
         To output the current system into a POSCAR file
         '''
-        s = self.to_poscar_string()
+        s = self.to_poscar_string(ifsort=ifsort)
         print('wrote POSCAR into %s' % file)
         with open(file, 'w') as f:
             f.write(s)
     
-    def to_poscar_string(self):
+    def to_poscar_string(self,
+                         ifsort: bool=True):
         '''
         Return a string with VASP POSCAR format
         '''
@@ -820,7 +822,8 @@ class Latt:
                 s += '%.10f\t' % j
             s += '\n'
         # 后面改一下 不要sort这么多次
-        self.sort()
+        if ifsort:
+            self.sort()
         formula_dict = get_formula(self.elements)[1]
         for i in formula_dict.keys():
             s += '    %s  ' % i
