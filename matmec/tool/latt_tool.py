@@ -1,5 +1,4 @@
 from multiprocessing.sharedctypes import Value
-from matmec.core.cell import Cell
 import numpy as np
 from time import time
 import json
@@ -33,11 +32,17 @@ def simplified_get_distance(p1, p2):
     '''
     Most simplified version of get distance, return the direct result of distance of each position in p1 \
     and each position in p2
-    Parameters:
-    p1: an numpy array
-    p2: an numpy array
-    return: return the distance matrix between p1 and p2
+    Args:
+        p1: an numpy array
+        p2: an numpy array
+    Return: 
+        the distance matrix between p1 and p2
     '''
+    
+    # make p1 and p2 at least 2D
+    p1 = np.atleast_2d(p1)
+    p2 = np.atleast_2d(p2)
+
     p1 = p1[:, None, :]
     p2 = p2[None, :, :]
     dis = p1 - p2
@@ -46,29 +51,45 @@ def simplified_get_distance(p1, p2):
 def easy_get_distance(p1, p2=None, isDirect = True, cell=None, verbose=True):
     '''
     Return the distance between p1 and p2, with boundary condition applied for direction coordinates condition
-    Parameters:
-    p1: an numpy array
-    p2: default: p1, an numpy array
-    isDirect: whether you are giving the position in a direct manner
-    cell: needed when isDirect is True, used to transform the direct coordinates you gave to cartisian coordinates
-    verbose: whether the output is verbose or not
-    return: return the distance matrix between p1 and p2
+    Args:
+        p1: an numpy array
+        p2: default: p1, an numpy array
+        isDirect: whether you are giving the position in a direct manner
+        cell: needed when isDirect is True, used to transform the direct coordinates you gave to cartisian coordinates
+        verbose: whether the output is verbose or not
+    Return: 
+        the distance matrix between p1 and p2
     '''
+    from matmec.core.cell import Cell
     t0 = time()
     if verbose:
         print('Calculating the distance matrix', end=' ... ')
+    
+    # incase you inputed a Latt instance
     if hasattr(p1, "cell"):
         cell = p1.cell.copy()
         isDirect = p1.get_direct()
         p1 = np.array(p1.poslist)
+    
+    # make p1 at least 2D
+    p1 = np.atleast_2d(p1)
+
+    # if p2 is not given, calculate the distance between p1 and itself
     if p2 is None:
         p2 = p1
+    
     p1 = p1[:, None, :]
     p2 = p2[None, :, :]
+
+    # periodic boundary condition
+    p1 %= 1.0
+    p2 %= 1.0
+
     dis = abs(p1 - p2)
     if isDirect:
+        # periodic boundary condition
         dis[np.where( dis >= 0.5 )] -= 1
-        # dis %= 0.5
+
         if cell is None:
             cell = Cell()
         dis = np.linalg.norm(np.matmul(dis, cell.lattvec*cell.scale), axis=2)

@@ -148,11 +148,8 @@ class Atom:
         '''
         # check if the moveVec is of list or np.ndarray type
         assert(isinstance(dispvec, (list, tuple, np.ndarray)) and len(dispvec)==3), 'Input moveVec should be of list or tuple type and length should be 3'
-        print("Pos before movement: %s" % self.pos)
 
         self.pos += dispvec
-
-        print("Pos after movement: %s" % self.pos)
         
     def copy(self):
         '''

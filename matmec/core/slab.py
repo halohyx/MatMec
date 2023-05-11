@@ -79,9 +79,9 @@ class Slab(Latt):
     __name__ = 'matmec.core.Slab'
 
     def __init__(self,
-                 hkl,
-                 vacuum,
-                 oriented_unit_cell,
+                 hkl: Union[str, list, np.ndarray]=None,
+                 vacuum: float=0.0,
+                 oriented_unit_cell = None,
                  formula: str=None, 
                  cell: Cell=None, 
                  pos= [0., 0., 0.],
@@ -105,6 +105,9 @@ class Slab(Latt):
     def _get_vacuum(self):
         return self._get_propdict_value('vacuum')
     def _set_vacuum(self, vacuum):
+        '''
+        Set the vacuum of the cell, the vacuum will only be output when finally output POSCAR file.
+        '''
         vacuum = np.float16(vacuum)
         self._set_propdict('vacuum', vacuum)
     vacuum = property(_get_vacuum, _set_vacuum, doc='The vacuum thickness of this slab.')
@@ -147,8 +150,7 @@ class Slab(Latt):
 
     # Slab_property: propdict
     '''
-    This part is to overwrite the get and set propdict method defined in Latt, as the \
-        properties have minor difference
+    This part is to overwrite the get and set propdict method defined in Latt, as the properties with same name have minor difference
     '''
     def _get_propdict_value(self, name):
         return deepcopy(self.propdict.get(name))
@@ -172,7 +174,10 @@ class Slab(Latt):
                    origin: Union[list, np.ndarray, float, int], 
                    asDirect: bool):
         '''
-        Move all the atoms with origin
+        Translate all the atoms with given origin
+        Args:
+            origin: the displacement made to the atoms
+            asDirect: define whether the given origin is in direct coordinate
         '''
         if asDirect:
             self.set_direct(True)
@@ -225,6 +230,9 @@ class Slab(Latt):
             self.poslist = poslist
 
     def copy(self):
+        '''
+        Return a copy of the slab
+        '''
         return deepcopy(self)
 
     @classmethod
@@ -232,17 +240,35 @@ class Slab(Latt):
                 latt, 
                 hkl: Union[str, int, list, np.ndarray], 
                 layers: int,
-                vacuum: float = None, 
+                vacuum: float = 10.0, 
                 x: Union[str, int, list, np.ndarray] = None, 
                 y: Union[str, int, list, np.ndarray] = None,
                 max_y_search: int = None,
                 eps = 1E-6):
         '''
-        Note that x and y vector should all be of int type
+        ***This method is only surface building method you need to use in this class***
+        Build a slab with given hkl, layers and vacuum. x, y vectors are optional.
+        You can:
+        1. supply two x, y vectors and hkl to define your slab
+        2. supply hkl and x vector, then the y vector will be automatically searched to \
+            make the y vectors as perpendicular to hkl and x as possible, \
+            with a maxium search counts of max_y_search.
+        3. supply hkl and no x, y vectors. The algorithm will automatically define the x, y vectors.
+        Args:
+            latt: the Latt instance used to build the slab
+            hkl: the hkl of the surface
+            layers: the number of layers of the slab
+            vacuum: the vacuum thickness of the slab (default is 10.0 Angstrom)
+            x: the x vector of the slab (optional)
+            y: the y vector of the slab (optional)
+            max_y_search: the maximum search counts for the y vector (optional)
+            eps: the tolerance for the algorithm (optional)
+        Return:
+            a Slab instance
         '''
         def if_on_plane(normal, vec, cell, eps):
             '''
-            Check if the vec given is perpendicular to normal
+            Return if the vec given is perpendicular to normal
             '''
             vec = abcvector(vec)
             vec_vector = cell.get_cartesian_coords(vec)[0]
@@ -356,7 +382,7 @@ class Slab(Latt):
     @classmethod
     def general_surface(cls, 
                         latt, 
-                        hkl, 
+                        hkl: str, 
                         layers: int, 
                         vacuum: float=10):
         '''
@@ -364,9 +390,11 @@ class Slab(Latt):
         Args:
             latt: the base Latt instance, better to provide in a conventional cell 
                 to make the generated slab more like the ones defined in textbook
-            hkl: the miller index. Should give as a string
+            hkl: the miller index. Should give as a string. Currently only accept 3 digits.
             layers: how many layers?
             vaccum: the vacuum height
+        Return:
+            a Slab instance
         '''
         assert (isinstance(layers, int)), "layers should be of int type"
         hkl = abcvector(hkl)
@@ -420,34 +448,90 @@ class Slab(Latt):
     def build_surface(latt, 
                       surfaceBasis, 
                       layers: int):
+        '''
+        The method used by general_surface and surface to build the slab, you usually don't call this method yourself.
+        Args:
+            latt: the base Latt instance, better to provide in a conventional cell
+            surfaceBasis: the basis of the new surface, a 3*3 matrix
+            layers: how many layers?
+        Return:
+            oriented_unit_cell: the oriented unit cell
+            slab: the slab instance
+        '''
         oriented_unit_cell = latt.copy().get_supercell([2, 2, 2])
+
+        '''
+        The algorithm is like use a new surfaceBasis to Box selection the Slab.
+        '''
         newCell = Cell(surfaceBasis)
+
         # now the oriented_unit_cell is obtained and saved, by changing the current cell into new cell without
         # modifying the coordinates
         oriented_unit_cell.set_cell(newCell, scaleatoms=False)
         oriented_unit_cell.merge_sites()
         oriented_unit_cell.wrap()
-        # generate supercell and wrap all the atoms in, and then merge t
+        # generate supercell and wrap all the atoms in, and then merge the sites
 
         slab = oriented_unit_cell.copy()
         
         slab = slab.get_supercell([1, 1, layers])
-
         # do schimidt orthogonalization to a3
         # in this step, a1 and a2 are not changed, and a3 is only projected onto the direction to the cross \
         # of (a1, a2), so we can directly scaleatoms the cell without changing the atoms cartesian coordinates
         _a1, _a2, _a3 = slab.cell.lattvec
-        _a3 = np.cross(_a1, _a2) * np.dot(_a3, np.cross(_a1, _a2)) / np.linalg.norm(np.cross(_a1, _a2))**2
-        slab.set_cell([_a1, _a2, _a3], scaleatoms=False)
 
-        # further normalize the cell, to make a1 as parallel with x axis, a3 parallel with c axis
+        cross_unit = np.cross(_a1, _a2) / np.linalg.norm(np.cross(_a1, _a2))
+        normalized_a3 = np.dot(_a3, cross_unit) * cross_unit
+
+        # _a3 = np.cross(_a1, _a2) * np.dot(_a3, np.cross(_a1, _a2)) / np.linalg.norm(np.cross(_a1, _a2))**2
+        slab.set_cell([_a1, _a2, normalized_a3], scaleatoms=False)
+        slab.wrap()
+
+        # check if some atoms are overlapped after the redifinition of a3, as some atoms will be wrapped back into the cell
+        overlapList = slab.check_overlap(tolerence = 0.1, verbose=True)
+
+        # if overlapped, then according to the periodicity of c axis, move the overlapped atoms along c axis (the unorthogonalized one)
+        slab.set_direct(False)
+
+        if overlapList:
+            for i in overlapList[0]:
+                # determine whether the overlaped atoms are in the top or bottom, if on the top, then move along a3, else move along -a3
+                if np.abs(slab.atomlist[i].pos[2] - 1) < 0.5: # because we alreddy wrapped, so the z coordinate is in [0, 1]
+                    slab.atomlist[i].move(_a3)
+                else:
+                    slab.atomlist[i].move(_a3*-1)
+        
+        slab.set_direct(True)
+
+        # further normalize the cell, to make a1 as parallel with x axis of cartesian coordinate, so as a3 parallel with c axis
         a1 = [np.linalg.norm(_a1), 0, 0]
+        # rotate the a2 in xy plane accordingly
         a2 = [np.dot(_a1, _a2) / np.linalg.norm(_a1), np.sqrt(np.linalg.norm(_a2)**2 - (np.dot(_a1, _a2) / np.linalg.norm(_a1))**2), 0]
-        a3 = [0, 0, np.linalg.norm(_a3)]
+        a3 = [0, 0, np.linalg.norm(normalized_a3)]
         slab.set_cell([a1, a2, a3], scaleatoms=True)
+
         # return hkl,vacuum,oriented_unit_cell,slab
         return oriented_unit_cell, slab
 
+    def write_to_poscar(self, 
+                        file: str='POSCAR',
+                        ifsort: bool=True):
+        '''
+        Overwrite the write_to_poscar method of Latt class to output the current Slab into a POSCAR file
+        '''
+        # generate a tmp Latt instance to write the POSCAR file, for the convinience of Vacuum layer
+        tmpLatt = self.copy()
+        tmpLatt.wrap()
+        # generate a tmp cell instance, for the convinience of Vacuum layer
+        tmpCell = tmpLatt.cell.copy()
+        tmpCell.lattvec[2, 2] += self.vacuum
+        # set the tmpLatt cell to tmpCell
+        tmpLatt.set_cell(tmpCell, scaleatoms=False)
+
+        s = tmpLatt.to_poscar_string(ifsort=ifsort)
+        print('wrote POSCAR into %s' % file)
+        with open(file, 'w') as f:
+            f.write(s)
 
 
 def ext_gcd(a, b):
@@ -467,6 +551,9 @@ def ext_gcd(a, b):
         return y, x - (a//b)*y
 
 def find_int_solution(exprs, varies_Symbol):
+    '''
+    
+    '''
     results = []
     num_exprs = len(exprs)
     i = 1

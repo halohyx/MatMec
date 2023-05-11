@@ -251,14 +251,14 @@ class Latt:
         pass
     
     # periodic boundary condition
-    def wrap(self):
+    def wrap(self,
+             eps: float = 1E-5):
         '''
         Apply boundary condition in 3 diretions
         Do this only in direct coordinates
         '''
         # in case the poslist is not updated, if the length of poslist is not equal to atomlist
         # update the poslist with current atomlist first
-        eps = 1E-7
         if len(self.poslist) < self.natom:
             self._update_atom_propdict('poslist')
         if self.get_direct():
@@ -803,7 +803,8 @@ class Latt:
             f.write(s)
     
     def to_poscar_string(self,
-                         ifsort: bool=False):
+                         ifsort: bool=True,
+                         ifwrap: bool=False):
         '''
         Return a string with VASP POSCAR format
         Args:
@@ -816,9 +817,7 @@ class Latt:
             pass
         else:
             raise ValueError('Atom %s overlap with Atom %s' % isOverlap)
-        if self.get_direct():
-            print(self.get_direct())
-            print("It is wrapped according to a direct coord way")
+        if ifwrap:
             self.wrap()
         s = '%s \n' % self.name
         s += '%f \n' % self.cell.scale

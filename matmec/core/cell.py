@@ -151,12 +151,12 @@ class Cell:
     def get_cartesian_coords(self, 
                              direct_coords: Union[list, np.ndarray]):
         direct_coords = np.array(direct_coords, dtype=float).reshape(-1, 3)
-        return np.matmul(direct_coords, self.lattvec)
+        return np.matmul(direct_coords, self.scale*self.lattvec)
     
     def get_direct_coords(self,
                           cartesian_coords: Union[list, np.ndarray]):
         cartesian_coords = np.array(cartesian_coords, dtype=float).reshape(-1, 3)
-        return np.linalg.solve(self.lattvec.T, cartesian_coords).T
+        return np.linalg.solve(self.scale*self.lattvec.T, cartesian_coords.T).T
 
     def __repr__(self):
         '''
