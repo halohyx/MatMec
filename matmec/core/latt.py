@@ -146,16 +146,25 @@ class Latt:
         2) implemented elements list
         3) list of Atom
         '''
-        # initilize the propdict, name, __direct__ and atomlist
+        # initilize the propdict and atomlist
         self.propdict = {}
         self.atomlist = np.array([], dtype=Atom)
-        self.name = name
-        self.__direct__ = isDirect
+
+        # if provided a Latt instance, inherite the cell, atomlist, name, direct 
+        if isinstance(formula, Latt):
+            self.name = formula.get_name()
+            self.__direct__ = formula.get_direct()
+            self._set_cell(formula.cell)
+            self.atomlist = formula.atomlist
+        else:
+            # set the name and direct
+            self.name = name
+            self.__direct__ = isDirect
 
         # set cell
-        if cell is None:
+        if cell is None and self.cell is None:
             self.cell = None
-        else:
+        elif cell is not None:
             if isinstance(cell, Cell):
                 self._set_cell(cell)
             else:
@@ -173,9 +182,6 @@ class Latt:
         elif isinstance(formula, (tuple, list, np.ndarray)):
             # if implemented a list of atoms, just add them
             self.addatom(formula, pos, self.__direct__, fix, velocity)
-        elif isinstance(formula, Latt):
-            self.set_cell(formula.cell)
-            self.addatom(formula.atomlist)
 
 
     def addatom(self, element: str, pos=[0., 0., 0.], isDirect: bool=True, \
@@ -190,7 +196,7 @@ class Latt:
             can be given in following
         5) single string instance, will be regarded as formula and resolved by built-in algorism and call in 4)
         '''
-        # one object given, in Atom or Latt form
+        # one object given, in Atom, Atomlist or Latt form
         if hasattr(element, '__name__'):
             if element.__name__ == 'matmec.core.Atom' or element.__name__ == 'matmec.core.Atomlist':
                 self.atomlist.append(element)
@@ -225,7 +231,8 @@ class Latt:
                 assert(isinstance(isDirect, bool)), 'isDirect input should be of bool type'
                 created_atoms = []
                 for i in range(len(element)):
-                    atom = Atom(element=element[i], pos=pos[i], isDirect=isDirect, cell=self.cell,\
+                    atom = Atom(element=element[i], 
+                                pos=pos[i], isDirect=isDirect,
                                 fix=fix[i], velocity=velocity[i])
                     created_atoms.append(atom)
                     del atom
@@ -254,7 +261,7 @@ class Latt:
         eps = 1E-7
         if len(self.poslist) < self.natom:
             self._update_atom_propdict('poslist')
-        if self.__direct__:
+        if self.get_direct():
             poslist = np.array(self.poslist)
             poslist += eps
             poslist %= 1.0
@@ -264,13 +271,12 @@ class Latt:
             # if current coordinate is cartesian coordinate, \
             # then calculate the corresponding direct coordinate and apply boundary conditions
             poslist = np.array(self.poslist)
-            transformMattrix = np.linalg.inv(self.cell.lattvec*self.cell.scale)
-            poslist = np.matmul(np.array(poslist), transformMattrix)
-            poslist += eps
-            poslist %= 1.0
-            poslist -= eps
-            poslist = np.matmul(poslist, self.cell.lattvec*self.cell.scale)
-            self.poslist = poslist
+            newposlist = self.cell.get_direct_coords(np.array(poslist))
+            newposlist += eps
+            newposlist %= 1.0
+            newposlist -= eps
+            newposlist = self.cell.get_cartesian_coords(newposlist)
+            self.poslist = newposlist
 
     #latt_method: to merge sites using the cluster algorism in scipy
     def merge_sites(self, 
@@ -306,7 +312,8 @@ class Latt:
 
     # check overlap
     def check_overlap(self, 
-                      tolerence: float=1E-6):
+                      tolerence: float=1E-3,
+                      verbose: bool=True):
         '''
         Check if some atoms are overlaped
         1) if no atoms overlapped, return False
@@ -315,9 +322,9 @@ class Latt:
         '''
         poslist = np.array(self.poslist)
         if self.get_direct() == True:
-            _, dis_arr = get_distances(poslist, cell=self.cell)
+            dis_arr = easy_get_distance(poslist, cell=self.cell, verbose=verbose)
         else:
-            _, dis_arr = get_distances(poslist, cell=None)
+            dis_arr = easy_get_distance(poslist, cell=None, verbose=verbose)
         id1, id2 = np.triu_indices(len(poslist), 1)
         overlap_id = np.where(dis_arr[id1, id2] < tolerence)[0]
         if len(overlap_id) == 0:
@@ -370,7 +377,7 @@ class Latt:
         '''
         if cell is not None:
             assert(cell.__name__ == 'matmec.core.Cell'), 'The cell should be of Cell type'
-            isDirect = self.__direct__
+            isDirect = self.get_direct()
             if self.cell is not None:
                 self.set_direct(False)
                 self._set_propdict('cell', cell)
@@ -379,6 +386,7 @@ class Latt:
                 self._set_propdict('cell', cell)
         else:
             self._set_propdict('cell', None)
+        uppdate_atom_cell(self)
     def set_cell(self, 
                  lattvec: np.ndarray =None, 
                  scale: float =1.0, 
@@ -404,6 +412,7 @@ class Latt:
                 lattvec = np.array(lattvec, dtype=float)
                 assert(lattvec.shape == (3, 3)), ValueError("The lattice vector should be (3, 3) matrix")
             cell.lattvec = lattvec
+
         if not scaleatoms or self.cell == None:
             # don't change the cartesian coordinates of the atoms
             self.cell = cell
@@ -566,18 +575,10 @@ class Latt:
     # method to change the direct and cartesian coordinate
     def __CtoD(self):
         assert(self.cell is not None), 'cell should be defined ahead of changing coordinate type'
-        transformMattrix = np.linalg.inv(self.cell.lattvec*self.cell.scale)
-        newposlist = np.matmul(np.array(self.poslist), transformMattrix)
-        # check if some atom is outside the box defined by cell, if so, then raise error
-        # outBoundary = newposlist > 1
-        # if outBoundary.any():
-        #     raise ValueError('Some atoms are outside the box defined by cell, pls check!')
-        self.poslist = newposlist
+        self.poslist = self.cell.get_direct_coords(self.poslist)
     def __DtoC(self):
         assert(self.cell is not None), 'cell should be defined ahead of changing coordinate type'
-        transformMattrix = self.cell.lattvec*self.cell.scale
-        
-        self.poslist = np.matmul(np.array(self.poslist), transformMattrix)
+        self.poslist = self.cell.get_cartesian_coords(self.poslist)
 
     def __getitem__(self, idx: int):
         return self.atomlist[idx]
@@ -802,9 +803,11 @@ class Latt:
             f.write(s)
     
     def to_poscar_string(self,
-                         ifsort: bool=True):
+                         ifsort: bool=False):
         '''
         Return a string with VASP POSCAR format
+        Args:
+            ifsort: default: True, whether to sort the atoms in the POSCAR file
         '''
         # isOverlap = self.check_overlap()
         isOverlap = False
@@ -814,6 +817,8 @@ class Latt:
         else:
             raise ValueError('Atom %s overlap with Atom %s' % isOverlap)
         if self.get_direct():
+            print(self.get_direct())
+            print("It is wrapped according to a direct coord way")
             self.wrap()
         s = '%s \n' % self.name
         s += '%f \n' % self.cell.scale
@@ -1021,3 +1026,10 @@ class Latt:
                 for i in range(steps):
                     self.cell.lattvec[tilt_axis] += each_step
                     self.write_to_poscar('./Shear_%s_%5.3f.vasp' % (str(i+1), (initialStrain + (i+1)*(endStrain-initialStrain)/steps) ))
+
+def uppdate_atom_cell(latt):
+    '''
+    This function is used to update the cell attribute of each atom when the cell is changed
+    '''
+    for atom in latt.atomlist:
+        atom.cell = latt.cell
