@@ -2,6 +2,7 @@
 import numpy as np
 from matmec.tool.latt_tool import periodic_table
 from matmec.core.cell import Cell
+from copy import deepcopy
 import warnings
 
 atom_propdict = ['element', 'pos', 'fix', 'velocity']
@@ -9,6 +10,10 @@ atom_propdict = ['element', 'pos', 'fix', 'velocity']
 global UPPDATE_ITEM
 UPPDATE_ITEM = {}
 
+'''
+BUG one problem that needs to be fixed is that when the property of one atom is updated, then
+a loop will need to be run to update the property of all the atoms. Which is a waste of time.
+'''
 
 class Atom:
 
@@ -18,11 +23,11 @@ class Atom:
                 cell: Cell=None, latt=None, fix: bool =[True, True, True], velocity=[.0, .0, .0]):
         '''
         Atom: an atom class contains index, element, pos, isDirect and cell\n
-        Parameters:
-        element: the element symbol of the atom, should be in the periodic table, str type
-        pos: the position of the atom, list type
-        isDirect: determine the coordinate type of input position, bool type
-        cell: the cell that the atom belongs to, Cell type
+        Args:
+            element: the element symbol of the atom, should be in the periodic table, str type
+            pos: the position of the atom, list type
+            isDirect: determine the coordinate type of input position, bool type
+            cell: the cell that the atom belongs to, Cell type
         '''
         self.propdict = {}
         self._set_element(element)
@@ -31,10 +36,7 @@ class Atom:
         self._set_fix(fix)
         self._set_velocity(velocity)
         if latt is not None:
-            self._set_latt(latt)
             self._set_cell(latt.cell)
-            if cell is None:
-                raise ValueError('If latt is set, then the cell should not be set at the same time')
         else:
             if cell is not None:
                 self._set_cell(cell)
@@ -46,7 +48,7 @@ class Atom:
         s += '%s ' % self.element
         for i in self.pos:
             s += '%05f ' % float(i)
-        direct = 'direc' if self.__direct__ else 'cartes'
+        direct = 'direc' if self.get_direct() else 'cartes'
         s += '%s ' % direct
         return 'Atom( %s)' % s
 
@@ -76,7 +78,7 @@ class Atom:
         self.set_propdict('pos', pos)
         UPPDATE_ITEM['poslist'] = True
         if isDirect is not None:
-            self.__direct__ = isDirect
+            self.set_direct(isDirect)
     pos = property(_get_pos, _set_pos, doc='The position of this atom')
 
     # velocity
@@ -96,14 +98,6 @@ class Atom:
         assert(cell.__name__ == 'matmec.core.Cell'), 'The cell should be of Cell type'
         self.set_propdict('cell', cell)
     cell = property(_get_cell, _set_cell, doc='The cell that current atom belongs to')
-    
-    # latt
-    def _set_latt(self, latt=None):
-        assert(latt.__name__ == 'matmec.core.Latt'), 'The latt should be of Latt type'
-        self.set_propdict('latt', latt)
-    def _get_latt(self):
-        return self.get_propdict_value('latt')
-    latt = property(_get_latt, _set_latt, doc='The latt that current atom belongs to')
 
     # index
     def _get_index(self):
@@ -119,7 +113,7 @@ class Atom:
 
     # direct
     def get_direct(self):
-        return self.__direct__
+        return deepcopy(self.__direct__)
     def set_direct(self, isDirect: bool =True):
         assert(isinstance(isDirect, bool)), 'The isDirect should be of bool type'
         transferNeed = self.__direct__ == isDirect
@@ -148,45 +142,50 @@ class Atom:
     # method to change the direct and cartesian coordinate
     def __CtoD(self):
         assert(self.cell is not None), 'cell should be defined ahead of changing coordinate type'
-        transfromMattrix = np.linalg.inv(self.cell.lattvec*self.cell.scale)
-        self.pos = np.matmul(np.array(self.pos), transfromMattrix)
+        self.pos = self.cell.get_direct_coords(self.pos)[0]
     def __DtoC(self):
         assert(self.cell is not None), 'cell should be defined ahead of changing coordinate type'
-        transfromMattrix = self.cell.lattvec*self.cell.scale
-        self.pos = np.matmul(np.array(self.pos), transfromMattrix)
-
-    def move(self, DirectionVec: list, distance: float, move_type: int=1):
+        self.pos = self.cell.get_cartesian_coords(self.pos)[0]
+    def move(self, 
+             dispvec, 
+             move_type: str='direct'):
         '''
         Move towards a certain direction, can move in direct coordinate or cartesian coordinate\n
-        Parameters:
-        DirectionVec: defines the direction vector of this move, this vector is defined in the cartesian coordinate
-        distance: 
-        move_type: 1 for Direct coordinate, 2 for Cartesian coordinate
+        Args:
+            DirectionVec: defines the direction vector of this move, this vector is defined in the cartesian coordinate
+            distance: 
+            move_type: word start with "d" for Direct coordinate, word start with "c" for Cartesian coordinate
         '''
-        assert(self.cell is not None), 'cell should be defined ahead of moving atom'
-        if move_type == 1:
-            '''Move in a direct coordinate way'''
-            [a, b, c, _, _, _] = self.cell.angle_calc()
-            minLength = min(a,b,c)
-            transformMatrix = np.linalg.inv(self.cell.lattvec/minLength)
-            DirectionVec = DirectionVec/np.linalg.norm(DirectionVec)
-            DispVec = distance*DirectionVec
-            DispVec = np.matmul(DispVec, transformMatrix)
-            self.set_direct(True)
-            self.pos += DispVec
+        # check if the moveVec is of list or np.ndarray type
+        assert(isinstance(dispvec, (list, tuple, np.ndarray)) and len(dispvec)==3), 'Input moveVec should be of list or tuple type and length should be 3'
+        print("Pos before movement: %s" % self.pos)
+        # save the old direct
+        oldDirect = self.get_direct()
 
-        elif move_type == 2:
+        if self.cell is None:
+            Warning('Cell is not supplied yet!')
+
+        if move_type[0] == "d":
+            '''Move in a direct coordinate way'''
+            self.set_direct(True)
+            self.pos += dispvec
+        elif move_type[0] == "c":
             '''Move in a cartesian coordinate way'''
             self.set_direct(False)
-            DirectionVec = DirectionVec/np.linalg.norm(DirectionVec)
-            DispVec = distance*DirectionVec
-            self.pos += DispVec
-
+            print("Card Pos before movement: %s" % self.pos)
+            print(dispvec)
+            self.pos += dispvec
+            print("Card Pos before movement: %s" % self.pos)
+        
+        self.set_direct(oldDirect)
+        print("Pos after movement: %s" % self.pos)
+        print(self.cell)
+        
     def copy(self):
         '''
         return the copy of current Atom
         '''
-        newatom = Atom(self.element, self.pos, self.__direct__, \
+        newatom = Atom(self.element, self.pos, self.get_direct(), \
                 self.cell, self.latt, self.fix)
         return newatom
     
