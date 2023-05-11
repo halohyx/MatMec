@@ -19,15 +19,18 @@ class Atom:
 
     __name__ = 'matmec.core.Atom'
 
-    def __init__(self, element: str, pos=[.0, .0, .0], isDirect: bool=True, \
-                cell: Cell=None, latt=None, fix: bool =[True, True, True], velocity=[.0, .0, .0]):
+    def __init__(self, 
+                 element: str, 
+                 pos=[.0, .0, .0], 
+                 isDirect: bool=True,
+                 fix: bool =[True, True, True], 
+                 velocity=[.0, .0, .0]):
         '''
         Atom: an atom class contains index, element, pos, isDirect and cell\n
         Args:
             element: the element symbol of the atom, should be in the periodic table, str type
             pos: the position of the atom, list type
             isDirect: determine the coordinate type of input position, bool type
-            cell: the cell that the atom belongs to, Cell type
         '''
         self.propdict = {}
         self._set_element(element)
@@ -35,11 +38,6 @@ class Atom:
         self.__direct__ = isDirect
         self._set_fix(fix)
         self._set_velocity(velocity)
-        if latt is not None:
-            self._set_cell(latt.cell)
-        else:
-            if cell is not None:
-                self._set_cell(cell)
  
     def __repr__(self) -> str:
         s= ''
@@ -91,16 +89,11 @@ class Atom:
         UPPDATE_ITEM['velocity'] = True
     velocity = property(_get_velocity, _set_velocity, doc='The velocity of this atom')
 
-    # cell
-    def _get_cell(self):
-        return self.get_propdict_value('cell')
-    def _set_cell(self, cell: Cell):
-        assert(cell.__name__ == 'matmec.core.Cell'), 'The cell should be of Cell type'
-        self.set_propdict('cell', cell)
-    cell = property(_get_cell, _set_cell, doc='The cell that current atom belongs to')
-
     # index
     def _get_index(self):
+        '''
+        BUG need to find a way to solve the index 
+        '''
         try: 
             index = np.where(self.latt.atomslist==self)
             self.index = index
@@ -147,46 +140,25 @@ class Atom:
         assert(self.cell is not None), 'cell should be defined ahead of changing coordinate type'
         self.pos = self.cell.get_cartesian_coords(self.pos)[0]
     def move(self, 
-             dispvec, 
-             move_type: str='direct'):
+             dispvec):
         '''
         Move towards a certain direction, can move in direct coordinate or cartesian coordinate\n
         Args:
-            DirectionVec: defines the direction vector of this move, this vector is defined in the cartesian coordinate
-            distance: 
-            move_type: word start with "d" for Direct coordinate, word start with "c" for Cartesian coordinate
+            dispvec: displacement vector, can be of list or np.ndarray type, length should be 3
         '''
         # check if the moveVec is of list or np.ndarray type
         assert(isinstance(dispvec, (list, tuple, np.ndarray)) and len(dispvec)==3), 'Input moveVec should be of list or tuple type and length should be 3'
         print("Pos before movement: %s" % self.pos)
-        # save the old direct
-        oldDirect = self.get_direct()
 
-        if self.cell is None:
-            Warning('Cell is not supplied yet!')
+        self.pos += dispvec
 
-        if move_type[0] == "d":
-            '''Move in a direct coordinate way'''
-            self.set_direct(True)
-            self.pos += dispvec
-        elif move_type[0] == "c":
-            '''Move in a cartesian coordinate way'''
-            self.set_direct(False)
-            print("Card Pos before movement: %s" % self.pos)
-            print(dispvec)
-            self.pos += dispvec
-            print("Card Pos before movement: %s" % self.pos)
-        
-        self.set_direct(oldDirect)
         print("Pos after movement: %s" % self.pos)
-        print(self.cell)
         
     def copy(self):
         '''
         return the copy of current Atom
         '''
-        newatom = Atom(self.element, self.pos, self.get_direct(), \
-                self.cell, self.latt, self.fix)
+        newatom = Atom(self.element, self.pos, self.get_direct(), self.fix)
         return newatom
     
     def get_property(self, prop_name: str):
