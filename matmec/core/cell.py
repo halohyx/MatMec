@@ -20,6 +20,7 @@ class Cell:
                                 [0.0, 1.0, 0.0],
                                 [0.0, 0.0, 1.0]])
         else:
+            if isinstance(lattvec, Cell): lattvec = deepcopy(lattvec.lattvec)
             lattvec = np.array(lattvec, dtype=float)
             assert(lattvec.shape == (3, 3)), ValueError("The lattice vector should be (3, 3) matrix")
         self.lattvec = lattvec

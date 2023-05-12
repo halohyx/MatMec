@@ -17,6 +17,8 @@ slab_prop = ['cell', 'name', '__direct__', 'propdict', 'natom', 'formula', \
 class abcvector:
     """
     A helper class to conviently give a direction vector, either directly give or using abc.
+    *** Notice abcvector is not same as hkl vector, as the hkl vector should be h*b1 + k*b2 + l*b3
+    *** Notice that the normal vector of the hkl plane is not 1/h*a1 + 1/k*a2 + 1/l*a3
     1) can give input as int(will be converted to string), string or list of abc
     2) if cell is provided, then return a*a1 + b*a2 + c*a3, otherwise return [a, b, c]
     Args:
@@ -24,12 +26,15 @@ class abcvector:
             vectors given by list or np.ndarray, the length should be 3
         cell: only useful when using abc to define the vector. can be of one Cell object or \
             a list of Cell objects
-        return: a single vector. when using abc to define the vectors, it returns a list of 
-            vectors (use each cell.lattvec with same abc to define vectors)
+        hklvector: if True, return the hkl vector, otherwise return the normal vector with element-wise mulitplication
+        reduce: if True, reduce the vector to the smallest integer
+    Return: 
+        a np.array vector instance. if hklvector is True, then return the hkl vector, otherwise return the normal vector
     """
     def __new__(self, 
                 abc: Union[int, str, list, np.ndarray], 
                 cell: Cell = None,
+                hklvector: bool = False,
                 reduce: bool = False):
         # prepare the abc_list
         if isinstance(abc, int): abc=str(abc)
@@ -48,14 +53,24 @@ class abcvector:
                 raise ValueError('The input abc should be either (3,) or (3,3) shape')
         else:
             raise ValueError('Input abc should be of int, str, list, np.ndarray type')
+        
+        if hklvector and cell is None:
+            raise ValueError('When using hklvector, cell should be provided')
+
         # prepare cell
         if cell is None:
-            abc_vector = abc_list
+            res_vector = abc_list
         else:
             cell = Cell(cell)
-            abc_vector = abc_list[0]*cell.lattvec[0]+abc_list[1]*cell.lattvec[1]+abc_list[2]*cell.lattvec[2]
+            if hklvector:
+                # *** 
+                reciprocal_lattice = cell.reciprocal_lattice
+                # get the norma vector, better to calculate from the reciprocal lattice
+                res_vector = reciprocal_lattice.get_cartesian_coords(abc_list)[0]
+            else:
+                res_vector = abc_list[0]*cell.lattvec[0]+abc_list[1]*cell.lattvec[1]+abc_list[2]*cell.lattvec[2]
         
-        return abc_vector
+        return res_vector
 
     @staticmethod
     def get_numbers_fromstr(number):
@@ -279,6 +294,7 @@ class Slab(Latt):
         cell = latt.cell
         is_orthotropic = cell.is_orthotropic()
         reciprocal_lattice = cell.reciprocal_lattice
+        # get the normal vector, better to calculate from the reciprocal lattice
         normal_vector = reciprocal_lattice.get_cartesian_coords(hkl)[0]
         if x is None and y is None:
             # x and y are not specified, then just call general_surface
