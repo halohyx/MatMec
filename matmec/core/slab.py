@@ -262,6 +262,14 @@ class Slab(Latt):
                 eps = 1E-6):
         '''
         ***This method is only surface building method you need to use in this class***
+        ***----------------IMPORTANT!!!------------------***
+        To transform the cartesian positions into another coordinate, you just need to\
+        multiply the arr_pos with the new matrix, for instance using the surface method\
+        you get a 3 vectors of the new oriented surface slab to be v1, v2, v3:
+        arr_pos = np.matmul(arr_pos, np.array([v1, v2, v3])) # then this transform the coordinate
+        as the v1, v2, v3 forms the new coordinate basis, it's a simple coordinate transform
+        ***----------------IMPORTANT!!!------------------***
+        
         Build a slab with given hkl, layers and vacuum. x, y vectors are optional.
         You can:
         1. supply two x, y vectors and hkl to define your slab
@@ -306,12 +314,15 @@ class Slab(Latt):
             x = abcvector(x, reduce=True)
             # reduce x first, and generate supercell along x direction if necessary
             x_dim = gcd(x[0], gcd(x[1], x[2]))
+
+            # the input x vector should be perpendicular to the normal vector
             x_on_plane = if_on_plane(normal=normal_vector, 
                                      vec=x, 
                                      cell=cell, 
                                      eps=eps)
             if not x_on_plane:
                 raise ValueError('Given x is not on the plane defined by hkl, pls check')
+            
             if is_orthotropic:
                 u1 = Symbol('x')
                 u2 = Symbol('y')
@@ -378,12 +389,13 @@ class Slab(Latt):
         p, q = ext_gcd(hkl[1], hkl[2])
         a, b = ext_gcd(p * hkl[1] + q * hkl[2], hkl[0])
         v3 = np.dot([b, a*p, a*q], cell.lattvec)
+        print(f'v3 is: {cell.get_direct_coords(v3)[0]}')
         surfaceBasis = np.array([cell.get_cartesian_coords(x)[0], cell.get_cartesian_coords(y)[0], v3], 
                                 dtype=float)
         # return a left-handed slab
         if np.linalg.det(surfaceBasis) < 0:
             surfaceBasis = -surfaceBasis
-        print(y)
+        print(f'y is: {y}')
         oriented_unit_cell, slab = cls.build_surface(latt=latt, 
                                                      surfaceBasis=surfaceBasis, 
                                                      layers=layers)
