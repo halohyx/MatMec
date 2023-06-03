@@ -1,0 +1,665 @@
+{
+    "Be": {
+        "AtomicNumber": 4,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Na": {
+        "AtomicNumber": 11,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Mg": {
+        "AtomicNumber": 12,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Al": {
+        "AtomicNumber": 13,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Si": {
+        "AtomicNumber": 14,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "K": {
+        "AtomicNumber": 19,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Ca": {
+        "AtomicNumber": 20,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Sc": {
+        "AtomicNumber": 21,
+        "HubbardU": 2.5,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Ti": {
+        "AtomicNumber": 22,
+        "HubbardU": 2.5,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "V": {
+        "AtomicNumber": 23,
+        "HubbardU": 3.1,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "DOI: 10.1039/c7ta08618k",
+        "formulaInCitation": "Li(NiCoMn)O2"
+    },
+    "Cr": {
+        "AtomicNumber": 24,
+        "HubbardU": 2.5,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Mn": {
+        "AtomicNumber": 25,
+        "HubbardU": 5.2,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "DOI: 10.1039/c7ta08618k",
+        "formulaInCitation": "Li(NiCoMn)O2"
+    },
+    "Fe": {
+        "AtomicNumber": 26,
+        "HubbardU": 2.5,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Co": {
+        "AtomicNumber": 27,
+        "HubbardU": 5.9,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "DOI: 10.1039/c7ta08618k",
+        "formulaInCitation": "Li(NiCoMn)O2"
+    },
+    "Ni": {
+        "AtomicNumber": 28,
+        "HubbardU": 7.17,
+        "Uorb": 2,
+        "Mag": 1.8,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Cu": {
+        "AtomicNumber": 29,
+        "HubbardU": 2.5,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Zn": {
+        "AtomicNumber": 30,
+        "HubbardU": 7.5,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "DOI:https://doi.org/10.1103/PhysRevB.73.205203",
+        "formulaInCitation": "ZnO"
+    },
+    "Ga": {
+        "AtomicNumber": 31,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "DOI:https://doi.org/10.1038/s41467-021-26815-6",
+        "formulaInCitation": "Mo-Li[Ni0.91Co0.09]O2"
+    },
+    "Ge": {
+        "AtomicNumber": 32,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "As": {
+        "AtomicNumber": 33,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Se": {
+        "AtomicNumber": 34,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Rb": {
+        "AtomicNumber": 37,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Sr": {
+        "AtomicNumber": 38,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Y": {
+        "AtomicNumber": 39,
+        "HubbardU": 2.0,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Zr": {
+        "AtomicNumber": 40,
+        "HubbardU": 2.0,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Nb": {
+        "AtomicNumber": 41,
+        "HubbardU": 2.0,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Mo": {
+        "AtomicNumber": 42,
+        "HubbardU": 4.38,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "DOI:https://doi.org/10.1038/s41467-021-26815-6",
+        "formulaInCitation": "Mo-Li[Ni0.91Co0.09]O2"
+    },
+    "Tc": {
+        "AtomicNumber": 43,
+        "HubbardU": 2.0,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Ru": {
+        "AtomicNumber": 44,
+        "HubbardU": 2.0,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Rh": {
+        "AtomicNumber": 45,
+        "HubbardU": 2.0,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Pd": {
+        "AtomicNumber": 46,
+        "HubbardU": 2.0,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Ag": {
+        "AtomicNumber": 47,
+        "HubbardU": 2.0,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Cd": {
+        "AtomicNumber": 48,
+        "HubbardU": 2.0,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "In": {
+        "AtomicNumber": 49,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Sn": {
+        "AtomicNumber": 50,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Sb": {
+        "AtomicNumber": 51,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Te": {
+        "AtomicNumber": 52,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "I": {
+        "AtomicNumber": 53,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Cs": {
+        "AtomicNumber": 55,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Ba": {
+        "AtomicNumber": 56,
+        "HubbardU": 0,
+        "Uorb": -1,
+        "Mag": 0.6,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "La": {
+        "AtomicNumber": 57,
+        "HubbardU": 6.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Ce": {
+        "AtomicNumber": 58,
+        "HubbardU": 6.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Pr": {
+        "AtomicNumber": 59,
+        "HubbardU": 6.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Nd": {
+        "AtomicNumber": 60,
+        "HubbardU": 6.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Pm": {
+        "AtomicNumber": 61,
+        "HubbardU": 6.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Sm": {
+        "AtomicNumber": 62,
+        "HubbardU": 6.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Eu": {
+        "AtomicNumber": 63,
+        "HubbardU": 6.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Gd": {
+        "AtomicNumber": 64,
+        "HubbardU": 6.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Tb": {
+        "AtomicNumber": 65,
+        "HubbardU": 6.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Dy": {
+        "AtomicNumber": 66,
+        "HubbardU": 6.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Ho": {
+        "AtomicNumber": 67,
+        "HubbardU": 6.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Er": {
+        "AtomicNumber": 68,
+        "HubbardU": 6.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Tm": {
+        "AtomicNumber": 69,
+        "HubbardU": 6.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Yb": {
+        "AtomicNumber": 70,
+        "HubbardU": 6.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Lu": {
+        "AtomicNumber": 71,
+        "HubbardU": 0.0,
+        "Uorb": -1,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Hf": {
+        "AtomicNumber": 72,
+        "HubbardU": 2.74,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "https://doi.org/10.3390/app11052395",
+        "formulaInCitation": "HfO2"
+    },
+    "Ta": {
+        "AtomicNumber": 73,
+        "HubbardU": 3.07,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "https://doi.org/10.3390/app11052395",
+        "formulaInCitation": "Ta2O5"
+    },
+    "W": {
+        "AtomicNumber": 74,
+        "HubbardU": 3.99,
+        "Uorb": 2,
+        "Mag": 1.0,
+        "citation": "https://doi.org/10.3390/app11052395",
+        "formulaInCitation": "WO3"
+    },
+    "Re": {
+        "AtomicNumber": 75,
+        "HubbardU": 0.0,
+        "Uorb": -1,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Os": {
+        "AtomicNumber": 76,
+        "HubbardU": 0.0,
+        "Uorb": -1,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Ir": {
+        "AtomicNumber": 77,
+        "HubbardU": 0.0,
+        "Uorb": -1,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Pt": {
+        "AtomicNumber": 78,
+        "HubbardU": 0.0,
+        "Uorb": -1,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Au": {
+        "AtomicNumber": 79,
+        "HubbardU": 0.0,
+        "Uorb": -1,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Hg": {
+        "AtomicNumber": 80,
+        "HubbardU": 0.0,
+        "Uorb": -1,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Tl": {
+        "AtomicNumber": 81,
+        "HubbardU": 0.0,
+        "Uorb": -1,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Pb": {
+        "AtomicNumber": 82,
+        "HubbardU": 0.0,
+        "Uorb": -1,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Bi": {
+        "AtomicNumber": 83,
+        "HubbardU": 0.0,
+        "Uorb": -1,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Po": {
+        "AtomicNumber": 84,
+        "HubbardU": 0.0,
+        "Uorb": -1,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Fr": {
+        "AtomicNumber": 87,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Ra": {
+        "AtomicNumber": 88,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Ac": {
+        "AtomicNumber": 89,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Th": {
+        "AtomicNumber": 90,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Pa": {
+        "AtomicNumber": 91,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "U": {
+        "AtomicNumber": 92,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Np": {
+        "AtomicNumber": 93,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Pu": {
+        "AtomicNumber": 94,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Am": {
+        "AtomicNumber": 94,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Cm": {
+        "AtomicNumber": 96,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Bk": {
+        "AtomicNumber": 97,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Cf": {
+        "AtomicNumber": 98,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Fm": {
+        "AtomicNumber": 100,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "Md": {
+        "AtomicNumber": 101,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": "",
+        "formulaInCitation": ""
+    },
+    "No": {
+        "AtomicNumber": 102,
+        "HubbardU": 2.0,
+        "Uorb": 3,
+        "Mag": 1.0,
+        "citation": ""
+    }
+}
