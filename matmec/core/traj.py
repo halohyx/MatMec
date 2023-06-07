@@ -11,13 +11,22 @@ traj_prop = ['cell', "timestep", "timeseries", "poslist", "nframes", "elements",
 
 class Traj:
     '''
-    All the following attribute will be stored in a propdict
-    timestep: the unit of time
-    timeseries: a 1D numpy array that records the time of each frame
-    elements: a 1D numpy array that records the element type of each atom
-    cell: be of matmec.core.Cell type, can either be one single Cell attribute (if the cell shape in the Traj doesn't change), \
-        or a 1D numpy array that records the cell of each frame (if the cell shape change in the Traj)
-    poslist: documented in (nframes, natoms, 3) numpy array, records the position of each atom in each frame
+    A class that record the trajectory of a molecular dynamic process, curenntly only support the trajectory of AIMD in vasp.
+    In most cases you may want to initialize this class by using the read_from_XDATCAR method.
+    Args:
+        timestep: int type
+            the unit of time
+        timeseries: list_like
+            a 1D numpy array that records the timeseries of each frame
+        elements: list_like
+            a 1D numpy array that records the element type of each atom
+        cell: matmec.core.Cell type
+            can either be one single Cell attribute (if the cell shape in the Traj doesn't change), \
+            or a 1D numpy array that records the cell of each frame (if the cell shape change in the Traj)
+        poslist: (nframes, natoms, 3) numpy array_like
+            records the position of each atom in each frame
+    Return:
+        traj: a Traj object
     '''
     __name__ = "matmec.core.Traj"
 
@@ -249,13 +258,21 @@ class Traj:
             self.poslist = poslist
 
     # @Traj_method: get trajectory from XDATCAR
-    def read_from_XDATCAR(self, file='XDATCAR', skipEvery=1, timestep=1, readConfs=None):
+    def read_from_XDATCAR(self, file='XDATCAR', skip_every=1, timestep=1, read_confs=None):
         '''
         In XDATCAR, when the cell shape and volume doen't change, then the system name
         and the cell vectors won't be printed in each configuration
-        file: name of the XDATCAR file
-        skipEvery: take the trajectory for each skipEvery frames
-        timestep: timestep of each frame
+        Args:
+            file: Path-like or string
+                file path of the XDATCAR file. Default is 'XDATCAR'
+            skip_every: int type
+                take the trajectory for each skip_every frames. Default is 1, which means take all frames.
+            timestep: int type
+                timestep of each frame. Default is 1 fs.
+            read_confs: int type
+                read the first read_confs configurations. Default is None, which means read all configurations.
+        Return:
+            a Traj object
         '''
         with open(file, 'r') as f:
             name = f.readline()[:-2] # to get rid of the ending /n
@@ -263,8 +280,8 @@ class Traj:
             poslist = []
             celllist = []
             count = 0
-            if readConfs is None:
-                readConfs = 1E100
+            if read_confs is None:
+                read_confs = 1E100
             natoms = None
             while name:
                 if name[:21] != "Direct configuration=":
@@ -295,20 +312,20 @@ class Traj:
                 del _pos
                 name = f.readline()[:-2]
                 count += 1
-                if count >= readConfs:
+                if count >= read_confs:
                     break
             if len(celllist) == 1 and len(poslist) != 1:
                 celllist = celllist[0]
-                poslist = poslist[0::skipEvery]
+                poslist = poslist[0::skip_every]
             elif len(celllist) == 1 and len(poslist) == 1:
                 celllist = celllist[0]
                 poslist = [poslist[0]]
             elif len(celllist) != 1 and len(celllist) == len(poslist):
-                celllist = np.array(celllist[0::skipEvery], dtype=Cell)
-                poslist = np.array(poslist[0::skipEvery], dtype=float)
+                celllist = np.array(celllist[0::skip_every], dtype=Cell)
+                poslist = np.array(poslist[0::skip_every], dtype=float)
             else:
                 raise ValueError("Please report this bug to Yixuan :)")
-            timestep = timestep*skipEvery
+            timestep = timestep*skip_every
             self.__init__(cell=celllist, elements=elementslist, poslist=poslist, timestep=timestep, \
                           isDirect=_isDirect)
             return self.__repr__()
@@ -317,19 +334,22 @@ class Traj:
     def get_projection(self, ob_direc, x_direc):
         r"""
         Project the coordinates on a given lattice plane
-        Parameters: 
-        ob_direc: the normal vector of the projection lattice plane, \
-            can be given in the tradition of hkl in str: "hkl" or int number: hkl\
-            or a real vector
+        Args: 
+            ob_direc: 
+                the normal vector of the projection lattice plane, \
+                can be given in the tradition of hkl in str: "hkl" or int number: hkl\
+                or a real vector
 
-        x_direc: the X direction of the projection lattice plane, \
-            should be given in the tradition of hkl in str: "hkl" or \
-            int number: hkl, and notice that this x_direct \
-            vector should be perpendicular of ob_direct. Thus, the 3rd basis \
-            vector of the camera coordinate is then defined as the cross of \
-            ob_direc and x_direc, and all of them will then be normalized.
+            x_direc: 
+                the X direction of the projection lattice plane, \
+                should be given in the tradition of hkl in str: "hkl" or \
+                int number: hkl, and notice that this x_direct \
+                vector should be perpendicular of ob_direct. Thus, the 3rd basis \
+                vector of the camera coordinate is then defined as the cross of \
+                ob_direc and x_direc, and all of them will then be normalized.
         
-        return: the 2D cartesian coordinates on the projection plane
+        Return: 
+            the 2D cartesian coordinates on the projection plane
         """
         ob_direc = abcvector(ob_direc, self.cell)
         x_direc = abcvector(x_direc, self.cell)
@@ -377,15 +397,47 @@ class Traj:
 
         '''
         For plotting the projection along the direction specified. The projection definition can be found in Traj.get_projection()
-        Parameters:
-            ob_direc: see Traj.get_projection(). Default: 100 (Hope in your cell the 100 are vertical to 001, otherwise error may rise!)
-            x_direc: see Traj.get_projection() Deafult: 001
-            style = style in matplotlib, call the plt.style.use(style)
-            cmap = colormap, can be of list of single colormap. A list of colormap will be applied on each element
-
+        Args:
+            ob_direc: str: "hkl" or int number: hkl or a list type real vector
+                see Traj.get_projection(). Default: 100 (Hope in your cell the 100 are vertical to 001, otherwise the default setting may cause error!)
+            x_direc: str: "hkl" or int number: hkl or a list type real vector
+                see Traj.get_projection() Deafult: 001
+            xlim: list type. Optional
+                the xlim of the plot. Default: None
+            ylim: list type. Optional
+                the ylim of the plot. Default: None
+            selected: list type. Optional
+                the selected elements to be plotted. Default: None, all will be plotted.
+            name: str type. Optional
+                by default we will save the figure, the name of the saved figure file. Default: 'projection'
+            cmap: list like. Optional
+                list of single colormap. A list of colormap will be used for each element. Default: None
+            style: str type. Optional.
+                style in matplotlib, call the plt.style.use(style). Default: 'seaborn-whitegrid'
+        Return:
+            None
         '''
 
         default_cmap_list = ['winter', 'cool','magma','cool', 'Blues', 'Greens', 'Oranges', 'Reds','cool', 'hyx1']
+
+        default_cmap_list = [
+    "winter",
+    'cool',
+    'magma',
+    'cividis',
+    'coolwarm',
+    'twilight',
+    'seismic',
+    'twilight_shifted',
+    'hsv',
+    'Pastel1',
+    'Pastel2',
+    'tab10',
+    'tab20',
+    'tab20b',
+    'tab20c',
+    'rainbow',
+]
 
         projection = self.get_projection(ob_direc, x_direc)
         elements = np.unique(self.elements)
@@ -405,6 +457,9 @@ class Traj:
         c = np.arange(len(self.timeseries))/len(self.timeseries)
 
         ax = fig.add_subplot(gs[:15-num_of_cmap])
+
+        # the interaction words
+        print(f'Plotting figure ...')
 
         if selected == None:
             for index, ele in enumerate(np.unique(self.elements)):
@@ -436,7 +491,6 @@ class Traj:
 
         ax.set_xlabel(r"$Distance\ (\AA)$", fontdict=title_font)
         ax.set_ylabel(r"$Distance\ (\AA)$", fontdict=title_font)
-        print(ax.get_xticks())
 
         # make the ticks increase from 0, from bottom to top, from left to right
         regular_ticks(ax, 'x')
@@ -467,4 +521,6 @@ class Traj:
             else:
                 cbar.set_ticks([])
             ax.set_xlabel(elements[i], fontdict=title_font)
+        print(f'Saving figure...')
         plt.savefig('%s.jpeg' % name)
+        print(f'Figure saved as {name}.jpeg')
