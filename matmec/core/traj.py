@@ -287,7 +287,8 @@ class Traj:
                         f.readline()
                         f.readline()
                         f.readline()
-                    _cell = Cell(_scale, lattvec=[_cellVec1, _cellVec2, _cellVec3])
+                    print([_cellVec1, _cellVec2, _cellVec3])
+                    _cell = Cell(lattvec=[_cellVec1, _cellVec2, _cellVec3], scale=_scale)
                     celllist.append(_cell)
                 _pos = [ [ float(j) for j in f.readline().split()] for i in range(natoms) ]
                 poslist.append(_pos)
@@ -339,14 +340,14 @@ class Traj:
         if len(ob_direc.shape) == 1:
             ob_direc = ob_direc/np.linalg.norm(ob_direc)
             x_direc = x_direc/np.linalg.norm(x_direc)
-            if np.abs(np.sum(np.dot(ob_direc, x_direc.T))) > 1E-4:
+            if np.abs(np.sum(np.dot(ob_direc, x_direc.T))) > 1.5e-2:
                 raise ValueError("The x_direc vector doesnt lie on the normal plane of ob_direc")
             y_direc = y_direc/np.linalg.norm(y_direc)
             camera_coord = np.array([x_direc, y_direc, ob_direc])
         else:
             ob_direc = ob_direc/np.linalg.norm(ob_direc, axis=1)
             x_direc = x_direc/np.linalg.norm(x_direc, axis=1)
-            if np.abs(np.sum(np.dot(ob_direc, x_direc.T))) > 1E-4:
+            if np.abs(np.sum(np.dot(ob_direc, x_direc.T))) > 1.5e-2:
                 raise ValueError("The x_direc vector doesnt lie on the normal plane of ob_direc")
             y_direc = y_direc/np.linalg.norm(y_direc, axis=1)
             camera_coord = np.array([[x_direc[i], y_direc[i], ob_direc[i]] for i in range(len(ob_direc))])
@@ -361,7 +362,14 @@ class Traj:
         return newcoordinates
         
     # Traj_method: plotting projection
-    def plot_projection(self, ob_direc, x_direc, xlim=None, ylim=None, selected=None, name='projection', cmap=None, style='seaborn-v0_8'):
+    def plot_projection(self, ob_direc, 
+                              x_direc, 
+                              xlim=None, 
+                              ylim=None, 
+                              selected=None, 
+                              name='projection', 
+                              cmap=None, 
+                              style='seaborn-whitegrid'):
         import matplotlib as mpl
         import matplotlib.pyplot as plt
         from matplotlib.gridspec import GridSpec
