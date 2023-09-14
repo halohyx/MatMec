@@ -1,7 +1,3 @@
-from crypt import methods
-from dis import dis
-from multiprocessing.sharedctypes import Value
-from turtle import pos
 import warnings
 from time import time
 import os
@@ -638,13 +634,89 @@ class Latt:
         # tmpLatt.wrap()
         return tmpLatt
 
+    def get_distance_matrix(self,
+                          method = "translational",
+                          verbose = True,
+                          ndim = 27):
+        '''
+        Return distance matrix of current system.(only applicable for direct coordinate)
+        % Notice when in not orthogonal cell, direct method could be problematic!
+        Parameters:
+        method: the method used for generating the distance matrix, can be translational or direct
+                translational is the most robust while direct is way faster. But direct would be 
+                problematic in tilted cell.
+        verbose: default: True, whether to output the information in a verbose way.
+        ndim: default: 27, whether to calculate in 3D(27) or 2D(9) convention
+        '''
+
+        if verbose:
+            print(f"Generating distance matrix for total {self.natom} atoms", end=' ... ')
+            t0 = time()
+
+        if method[0] in ["T", "t"]:
+            method = "translational"
+        elif method[0] in ["D", "d"]:
+            method = "direct"
+        else:
+            raise ValueError("Method should be within translational or direct!")
+
+        if method == "translational":
+            
+            assert ndim in [9, 27], "ndim should either be 9 or 27 for 2D and 3D case, respectively"
+
+            # for generating the sites in 9 periodic equivalent cells spacially
+            direct_translation_vectors = [[ 0, 0, 0],[ 1, 0, 0],[-1, 0, 0],[ 0, 1, 0],[ 0,-1, 0],[ 1, 1, 0],[-1,-1, 0],[ 1,-1, 0],[-1, 1, 0],
+                                        [ 0, 0, 1],[ 1, 0, 1],[-1, 0, 1],[ 0, 1, 1],[ 0,-1, 1],[ 1, 1, 1],[-1,-1, 1],[ 1,-1, 1],[-1, 1, 1],
+                                        [ 0, 0,-1],[ 1, 0,-1],[-1, 0,-1],[ 0, 1,-1],[ 0,-1,-1],[ 1, 1,-1],[-1,-1,-1],[ 1,-1,-1],[-1, 1,-1]]
+            
+            # the ndim number of matrix for translate the current cell to all the periodic equivalent position, for 3D there are 27
+            # used for direct coordinates, the shape would be (ndim, natom, 3)
+            translation_matrix = np.array([ vec*self.natom for vec in direct_translation_vectors[:ndim] ]).reshape(ndim, self.natom, 3) 
+
+            # the translated position, for 3D there are 27 sets
+            allPos = np.tile(self.poslist.flatten(), ndim).reshape(ndim, -1, 3) # np.tile to copy the array 27 times
+            allPos = allPos - translation_matrix
+
+            # get the cartesian positions of all periodic equivalent cells
+            cell = self.cell.lattvec*self.cell.scale
+            allCartPos = np.matmul(allPos, cell)
+
+            # get the distance matrixes for the original cell and all the equivalent cells, and take the minimum at the same position
+            # of all the distance matrixes
+            large_distance_mat = np.array([ simplified_get_distance(allCartPos[0], CardPos) for CardPos in allCartPos])
+            dis_mat = np.minimum.reduce(large_distance_mat, axis=0)
+            dis_mat = np.round(dis_mat, 3)
+        
+        elif method == "direct":
+            # could be problematic when the cell is not orthogonal!
+            # for example, in hcp cell
+            # [-0.4, -0.6, 0] in this method will be turned into [-0.4, 0.3999, 0]
+            # however, former is shorted in hcp cell
+            # bacasue the nonvertical basis vectors will cancel each other, but that manner cannot be catched by this method
+            # a test in hcp cell of 100 atoms tells that 1000 pairs out of 10000 total pairs are wrong.
+            if not self.cell.is_orthotropic():
+                warnings.warn("\nBetter use traslational method! This method become problematic when in not orthogonal cell!", UserWarning)
+
+            dis_mat = easy_get_distance(p1 = self.poslist, cell = self.cell, verbose = False)
+            dis_mat = np.round(dis_mat, 3)
+
+        if verbose:
+            # for output the time for generating the distance matrix
+            print(f"Done in {time()-t0:.3f} sec")
+
+        return dis_mat
+
     def get_neighbor_matrix(self,
                           max_neigh = 3,
+                          dis_mat_method = "translational",
                           verbose = True):
         '''
         Return the neighbor list of current system.
         Parameters:
         max_neigh: default: 3, define which the max nearest neighbor shell
+        dis_mat_method : the method used for generating the distance matrix, can be translational or direct
+                translational is the most robust while direct is way faster. But direct would be 
+                problematic in tilted cell.
         verbose: default: True, whether to output the information in a verbose way.
         '''
 
@@ -652,35 +724,10 @@ class Latt:
             print(f"Generating neighbor matrix for total {self.natom} atoms", end=' ... \n')
             t0 = time()
 
-        ndim = 27
+        dis_mat = self.get_distance_matrix(method = dis_mat_method,
+                                           verbose = verbose)
+
         max_n = max_neigh + 1
-
-        if verbose:
-            print(f"Generating distance matrix for total {self.natom} atoms", end=' ... ')
-
-        direct_translation_vectors = [[ 0, 0, 0],[ 1, 0, 0],[-1, 0, 0],[ 0, 1, 0],[ 0,-1, 0],[ 1, 1, 0],[-1,-1, 0],[ 1,-1, 0],[-1, 1, 0],
-                                    [ 0, 0, 1],[ 1, 0, 1],[-1, 0, 1],[ 0, 1, 1],[ 0,-1, 1],[ 1, 1, 1],[-1,-1, 1],[ 1,-1, 1],[-1, 1, 1],
-                                    [ 0, 0,-1],[ 1, 0,-1],[-1, 0,-1],[ 0, 1,-1],[ 0,-1,-1],[ 1, 1,-1],[-1,-1,-1],[ 1,-1,-1],[-1, 1,-1]]
-        
-        # the ndim number of matrix for translate the current cell to all the periodic equivalent position, for 3D there are 27
-        translation_matrix = np.array([ vec*self.natom for vec in direct_translation_vectors[:ndim] ]).reshape(ndim, self.natom, 3)
-
-        # the translated position, for 3D there are 27 sets
-        allPos = np.tile(self.poslist.flatten(), ndim).reshape(ndim, -1, 3)
-        allPos = allPos - translation_matrix
-
-        # get the cartesian positions of all periodic equivalent cells
-        cell = self.cell.lattvec*self.cell.scale
-        allCartPos = np.matmul(allPos, cell)
-
-        # get the distance matrixes for the original cell and all the equivalent cells, and take the minimum at the same position
-        # of all the distance matrixes
-        large_distance_mat = np.array([ simplified_get_distance(allCartPos[0], CardPos) for CardPos in allCartPos])
-        dis_mat = np.minimum.reduce(large_distance_mat, axis=0)
-        dis_mat = np.round(dis_mat, 3)
-
-        if verbose:
-            print(f"Done in {time()-t0:.3f} sec")
 
         # all the type of distances in the system. Use this to judge which nearest neighbor shell the atom pairs belong to
         neigh_dis_list = np.unique(dis_mat.ravel())[:max_n]
@@ -688,6 +735,8 @@ class Latt:
 
         neigh_mat = np.zeros((self.natom, self.natom))
         for m in range(1, max_n):
+            # every time m increase, the neighbor shell level increase, until max_n
+            # if one pair is already determined as lower level (neigh_mat==0), then it would not be further considered
             neigh_indice = np.where(np.logical_and(dis_mat <= neigh_dis_list[m], neigh_mat == 0))
             neigh_mat[neigh_indice] = m
 

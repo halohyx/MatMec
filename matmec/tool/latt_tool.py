@@ -51,6 +51,7 @@ def simplified_get_distance(p1, p2):
 def easy_get_distance(p1, p2=None, isDirect = True, cell=None, verbose=True):
     '''
     Return the distance between p1 and p2, with boundary condition applied for direction coordinates condition
+    %this solved the 27 dimensions that you don't need to copy the original poslist 27 times for 3D periodic condition
     Args:
         p1: an numpy array
         p2: default: p1, an numpy array
@@ -85,10 +86,12 @@ def easy_get_distance(p1, p2=None, isDirect = True, cell=None, verbose=True):
     p1 %= 1.0
     p2 %= 1.0
 
-    dis = abs(p1 - p2)
+    dis = p1 - p2
+
     if isDirect:
         # periodic boundary condition
-        dis[np.where( dis >= 0.5 )] -= 1
+        dis[np.where( dis >= 0.5 )] -= 1 # because it was abs before
+        dis[np.where( dis <= -0.5 )] += 1
 
         if cell is None:
             cell = Cell()
