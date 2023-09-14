@@ -640,6 +640,7 @@ class Latt:
                           ndim = 27):
         '''
         Return distance matrix of current system.(only applicable for direct coordinate)
+        % Item i,j indicate the distance between atom i and atom j
         % Notice when in not orthogonal cell, direct method could be problematic!
         Parameters:
         method: the method used for generating the distance matrix, can be translational or direct
@@ -708,10 +709,13 @@ class Latt:
 
     def get_neighbor_matrix(self,
                           max_neigh = 3,
+                          cutoff_radius = 8,
+                          memory_save = True,
                           dis_mat_method = "translational",
                           verbose = True):
         '''
         Return the neighbor list of current system.
+        % should add the cutoff to save the memory
         Parameters:
         max_neigh: default: 3, define which the max nearest neighbor shell
         dis_mat_method : the method used for generating the distance matrix, can be translational or direct
@@ -724,29 +728,90 @@ class Latt:
             print(f"Generating neighbor matrix for total {self.natom} atoms", end=' ... \n')
             t0 = time()
 
+        # get the distance matrix first
         dis_mat = self.get_distance_matrix(method = dis_mat_method,
                                            verbose = verbose)
+
+        # two kinds of output: 
+        # full neighbor matrix (memory_save == False) will output natom*natom shape matrix, with the neighbors determined including all atoms
+        # neighbor matrix (memory_save == True) will output the neighbor atoms within the cutoff distance
+        if memory_save:
+
+            # find out the neighbor atoms within the cutoff_radius
+            iatoms, jatoms = np.where(dis_mat < cutoff_radius) # get the index of atoms within the cutoff radius but not the atom itself
+
+            # generate the seperators
+            # iatoms will be like [0, 0, 0, 1, 1, 1, 1], seperators will be like [0, 3, 7] to seperate the iatoms and jatoms
+            seperators = [0]
+            flag = 1
+            largest_neigh_num = -1E100 # for later creating a regular shape of neigh_index_mat and neigh_dis_mat
+
+            for i in range(len(iatoms)):
+                if iatoms[i] == flag:
+                    seperators.append(i)
+                    if seperators[-1] - seperators[-2] > largest_neigh_num:
+                        largest_neigh_num = seperators[-1] - seperators[-2]
+                    flag += 1
+
+            seperators.append(len(iatoms))
+
+            # two lists, one to store the index of neighbors, the other to store the distance of neighbors, within the cutoff radius
+            # neigh_index_mat will be like [[1, 4, 5], [7, 10, 13], [2, 3, 6]], first item for neigh atoms' indices for atom 1, second item for atom 2, etc.
+            # neigh_dis_mat will be similar, but the distance instead of index
+            neigh_index_mat = []
+            neigh_dis_mat = []
+
+            for atom_num in range(self.natom):
+                num_of_neigh = seperators[atom_num+1] - seperators[atom_num]
+
+                # selects out the index of neighbors for atom_num
+                tmp_neigh_index_list = jatoms[seperators[atom_num]:seperators[atom_num+1]]
+
+                # delete the index of atom_num itself
+                tmp_neigh_index_list = np.delete(tmp_neigh_index_list, np.where(tmp_neigh_index_list == atom_num))
+                
+                # selects out the distance of neighbors for atom_num
+                tmp_neigh_dis_list = dis_mat[atom_num][tmp_neigh_index_list]
+
+                # %Notice that the shape of neigh_index_mat maybe irregular, as different atomic site may have different number of neighbors
+                # complement if the number of neighbors is not the same for all sites.
+                if num_of_neigh < max_neigh:
+                    Warning.warn("Number of neighbors for atoms is not same for all sites, we will fill the empty space with None")
+                    tmp_neigh_index_list = np.concatenate((tmp_neigh_index_list, np.array([-1]*(max_neigh-num_of_neigh))))
+                    tmp_neigh_dis_list = np.concatenate((tmp_neigh_dis_list, np.array([-1]*(max_neigh-num_of_neigh))))
+
+                # add the tmp_neigh_index_list and tmp_neigh_dis_list to neigh_index_mat and neigh_dis_mat
+                neigh_dis_mat.append(tmp_neigh_dis_list)
+                neigh_index_mat.append(tmp_neigh_index_list)
+
+            # make them numpy array
+            neigh_index_mat = np.array(neigh_index_mat)
+            neigh_dis_mat = np.array(neigh_dis_mat)
+
+        else:
+            neigh_dis_mat = np.array(dis_mat)
+            neigh_index_mat = np.array([range(self.natom)]*self.natom)
 
         max_n = max_neigh + 1
 
         # all the type of distances in the system. Use this to judge which nearest neighbor shell the atom pairs belong to
-        neigh_dis_list = np.unique(dis_mat.ravel())[:max_n]
-        if len(neigh_dis_list)<max_n: max_n=len(neigh_dis_list)
+        distances = np.unique(dis_mat.ravel())[:max_n]
+        if len(distances)<max_n: max_n=len(distances)
 
-        neigh_mat = np.zeros((self.natom, self.natom))
+
+        # two methods, one for memory saving, one for convinience
+        if memory_save:
+           neigh_level_mat = np.ones(np.shape(neigh_index_mat), dtype=int)*-1
+        else:
+            neigh_level_mat = np.ones((self.natom, self.natom), dtype=int)*-1
+
+        # every time m increase, the neighbor shell level increase, until max_n
+        # if one pair is already determined as lower level (neigh_level_mat==0), then it would not be further considered
         for m in range(1, max_n):
-            # every time m increase, the neighbor shell level increase, until max_n
-            # if one pair is already determined as lower level (neigh_mat==0), then it would not be further considered
-            neigh_indice = np.where(np.logical_and(dis_mat <= neigh_dis_list[m], neigh_mat == 0))
-            neigh_mat[neigh_indice] = m
+            neigh_indice = np.where(np.logical_and(neigh_dis_mat <= distances[m], neigh_level_mat == -1))
+            neigh_level_mat[neigh_indice] = m
 
-        neigh_mat[np.diag_indices(self.natom)] = 0
-        self.neigh_mat = neigh_mat
-
-        if verbose:
-            print(f"Done generating neighbor matrix in {time()-t0:.3f} sec")
-            
-        return neigh_mat
+        return neigh_level_mat, neigh_index_mat, neigh_dis_mat
 
     @classmethod
     def read_from_poscar(cls, 
