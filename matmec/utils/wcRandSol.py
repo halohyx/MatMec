@@ -220,10 +220,10 @@ class wcRandSol:
         '''
         The goal probability matrix for different metrics, representing an ideal mixing.
         Parameters:
-            metric_method: cross_prob, normal_prob
+            metric_method: cross_prob, std_prob
             For cross_prob:
                 Ideally, the probability i, j pair is the product of the concentration of i and j. 
-            For normal_prob:
+            For std_prob:
                 Ideally, the probability i, j pair is the concentration of j.
         '''
         ntype_ele = len(self.comp_atom_list)
@@ -246,14 +246,14 @@ class wcRandSol:
             
             self.goal_prob_mat = goal_prob_mat
 
-        elif metric_method == "normal_prob":
+        elif metric_method == "std_prob":
             # the goal probability matrix
             goal_prob_mat = np.tile(self.comp_atom_list/self.natom, self.max_neigh*ntype_ele).reshape(self.max_neigh, ntype_ele, ntype_ele)
 
         return goal_prob_mat
 
     def compute_cross_prob_mat(self,
-                          occup_array: np.ndarray):
+                                occup_array: np.ndarray):
         '''
         Compute the pair correlation for each element in each nearst neighbor shell.
         This is the cross probability method, to calculate the cross probability from finding all A-B pairs among all pairs 
@@ -371,10 +371,11 @@ class wcRandSol:
             
         return atomic_neigh_mat
     
-    def compute_atomic_prob_mat(self,
+    def compute_std_prob_mat(self,
                                 occup_array):
         '''
-        This method ultilize the atomic neighbor matrix to compute the probability matrix.
+        This method ultilize the atomic neighbor matrix to compute the standard probability matrix.
+        % This is the standard definition of probability in the Warren-Cowley equations.
         Parameters:
             occup_array: occupation array, the occupation array for all atoms
         Return:
@@ -384,24 +385,24 @@ class wcRandSol:
         atomic_neigh_mat = self.generate_atomic_neigh_mat(occup_array)
 
         # define an empty probability matrix
-        prob_mat = np.zeros((self.max_neigh, len(self.comp_atom_list), len(self.comp_atom_list)))
+        std_prob_mat = np.zeros((self.max_neigh, len(self.comp_atom_list), len(self.comp_atom_list)))
 
         # loop for different element pair probability
         for ele1 in range(len(self.comp_atom_list)):
 
             # screen out all the neighbor list for ele1 element
-            ele1_atomic_prob_mat = atomic_neigh_mat[:, occup_array == ele1+1, :]
+            ele1_std_prob_mat = atomic_neigh_mat[:, occup_array == ele1+1, :]
 
             # sum up the total number of neighbors for ele1 element
-            total_neighbors_nums = ele1_atomic_prob_mat.sum(axis=1).sum(axis=1)
+            total_neighbors_nums = ele1_std_prob_mat.sum(axis=1).sum(axis=1)
 
             # compute the probability for ele1-ele2 pair
             for ele2 in range(len(self.comp_atom_list)):
                 # np.array(range(self.max_neigh)) as index so we can assign the values for different neighbors at the same time
                 # this calculates the number of ele2 atoms in the ele1 neighbor list, and divide by the total number of current neighbor shell
-                prob_mat[np.array(range(self.max_neigh)), ele1, ele2] = ele1_atomic_prob_mat[:, :, ele2].sum(axis=1)/total_neighbors_nums
+                std_prob_mat[np.array(range(self.max_neigh)), ele1, ele2] = ele1_std_prob_mat[:, :, ele2].sum(axis=1)/total_neighbors_nums
             
-        return prob_mat
+        return std_prob_mat
 
 
     def compute_metric(self,
@@ -409,15 +410,23 @@ class wcRandSol:
                        metric_method: str = "cross_prob",
                        ):
         '''
-        Three types of metric_method, cross_prob, atomic_diff and normal_prob.
+        Three types of metric_method, cross_prob, atomic_diff and std_prob.
         cross_prob:
             We would calculate how many i, j pairs among all pairs in different neighbor shells,
             then we compute the probability of seeing i-j pairs by dividing the total number of 
             i-j pairs by the total number of pairs. Ideal would be Pi*Pj.
         atomic_diff:
-
+            firstly we calculate the element distribution of every atom in each neighbor shell and make it a matrix.
+            Then we calculate the difference of the concentration in each neighbor shell near each atom and the 
+            ideal concentration. Ideal would be comp_atom_list/natom. Then a mean difference of each element 
+            would be output to represent the metric value.
+        std_prob:
+            Firstly we calculate the element distribution of every atom in each neighbor shell and make it a matrix.
+            Then the matrix is used to calculate the concentration of atom j in the neighbor shell of atom i. And this
+            yields the probability matrix. Ideal would be comp_atom_list/natom.
+        Return:
+            metric_value: the metric value for each neighbor shell regarding different metric method.
         '''
-        # 两种metric，一种是average的那个，一种是每个原子的probility来减去goal concentration的abs和。
 
         # number of types of elements
         ntype_ele = len(self.comp_atom_list)
@@ -453,9 +462,9 @@ class wcRandSol:
             # metric value would be the weighted average of the diff_values
             metric_value = np.sum(diff_values * self.comp_atom_list/self.natom, axis=1)
 
-        elif metric_method == "normal_prob":
+        elif metric_method == "std_prob":
             # the current probability matrix
-            current_prob_mat = self.compute_atomic_prob_mat(occup_array)
+            current_prob_mat = self.compute_std_prob_mat(occup_array)
 
             # the goal probability matrix
             goal_prob_mat = np.tile(self.comp_atom_list/self.natom, self.max_neigh*ntype_ele).reshape(self.max_neigh, ntype_ele, ntype_ele)
@@ -470,14 +479,14 @@ class wcRandSol:
         return metric_value
 
 
-    def generate_random_lattice(self,
-                    maxIteration: int = 1000,
-                    verbose: bool = True):
+    def run(self,
+            maxIteration: int = 1000,
+            verbose: bool = True):
         '''
         Start the iteration for generating wcRandSol geometry, final wcRandSol geometry will be stored at self.final_latt.
         A convergence cretiria between 1E-5 and 1E-6 is recommanded.
         Parameters:
-        maxIteration: the max iteration program will perform.
+            maxIteration: the max iteration program will perform.
         '''
         # BUG BUG BUG Bring in the atoms swap method next time.
 
@@ -489,7 +498,7 @@ class wcRandSol:
 
         if verbose:
             print()
-            print("Starting iteration for the bese wcRandSol")
+            print("Starting iteration for the beset wcRandSol")
             print()
 
         # define some helper function

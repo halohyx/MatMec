@@ -3,7 +3,7 @@ from pathlib import PurePath
 import numpy as np
 from matmec.core import Cell
 
-from .sqs import SQS
+from .wcRandSol import wcRandSol
 
 class iofunction:
     '''

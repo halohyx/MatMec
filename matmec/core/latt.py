@@ -639,6 +639,7 @@ class Latt:
                           verbose = True,
                           ndim = 27):
         '''
+        #BUG try to solve the memery problem.
         Return distance matrix of current system.(only applicable for direct coordinate)
         % Item i,j indicate the distance between atom i and atom j
         % Notice when in not orthogonal cell, direct method could be problematic!
@@ -709,19 +710,25 @@ class Latt:
 
     def get_neighbor_matrix(self,
                           max_neigh = 3,
-                          cutoff_radius = 8,
                           memory_save = True,
+                          cutoff_radius = 8,
                           dis_mat_method = "translational",
                           verbose = True):
         '''
         Return the neighbor list of current system.
         % should add the cutoff to save the memory
         Parameters:
-        max_neigh: default: 3, define which the max nearest neighbor shell
-        dis_mat_method : the method used for generating the distance matrix, can be translational or direct
-                translational is the most robust while direct is way faster. But direct would be 
-                problematic in tilted cell.
-        verbose: default: True, whether to output the information in a verbose way.
+            max_neigh: default: 3, define which the max nearest neighbor shell
+            memory_save: default: True, whether to save the memory by only storing the neighbor atoms within the cutoff radius
+            cutoff_radius: default: 8, the cutoff radius for the neighbor atoms, only applicable when memory_save is True
+            dis_mat_method : the method used for generating the distance matrix, can be translational or direct
+                    translational is the most robust while direct is way faster. But direct would be 
+                    problematic in tilted cell.
+            verbose: default: True, whether to output the information in a verbose way.
+        Returns:
+            neigh_level_mat: the neighboring level matrix, 
+            neigh_index_mat: the neighboring index matrix,
+            neigh_dis_mat: the neighboring distance matrix
         '''
 
         if verbose:
@@ -798,10 +805,9 @@ class Latt:
         distances = np.unique(dis_mat.ravel())[:max_n]
         if len(distances)<max_n: max_n=len(distances)
 
-
         # two methods, one for memory saving, one for convinience
         if memory_save:
-           neigh_level_mat = np.ones(np.shape(neigh_index_mat), dtype=int)*-1
+            neigh_level_mat = np.ones(np.shape(neigh_index_mat), dtype=int)*-1
         else:
             neigh_level_mat = np.ones((self.natom, self.natom), dtype=int)*-1
 
@@ -810,6 +816,10 @@ class Latt:
         for m in range(1, max_n):
             neigh_indice = np.where(np.logical_and(neigh_dis_mat <= distances[m], neigh_level_mat == -1))
             neigh_level_mat[neigh_indice] = m
+
+        if verbose:
+            # for output the time for generating the neighbor matrix
+            print(f"Done in {time()-t0:.3f} sec")
 
         return neigh_level_mat, neigh_index_mat, neigh_dis_mat
 
