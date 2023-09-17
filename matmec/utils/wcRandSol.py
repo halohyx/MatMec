@@ -7,6 +7,8 @@ class wcRandSol:
     '''
     The class adopting Warren-Cowley parameter to generate a random solution.
     Parameters:
+        metric_method: the method to calculate the metric value, could be cross_prob, atomic_diff and std_prob
+                        Currently only support cross_prob and std_prob
         latt: the Latt class object, you can assign this variable to assign the initial structure information
         max_neigh: the max neighbor shell that will be considered
         conv_thr: the convergence threshold. A single value or a list of values for each neighbor shell.
@@ -226,7 +228,7 @@ class wcRandSol:
             For std_prob:
                 Ideally, the probability i, j pair is the concentration of j.
         '''
-        ntype_ele = len(self.comp_atom_list)
+        nele = len(self.comp_atom_list)
 
         # if metric_method is not given, use the default one stored in this class
         if metric_method is None:
@@ -237,18 +239,18 @@ class wcRandSol:
             goal_conc_list = self.goal_conc_list/100
 
             # initialize the goal cross probability matrix
-            goal_prob_mat = np.zeros((self.max_neigh, ntype_ele, ntype_ele))
+            goal_prob_mat = np.zeros((self.max_neigh, nele, nele))
 
             # the ideal distribution
-            for ele1 in range(ntype_ele):
-                for ele2 in range(ntype_ele):
+            for ele1 in range(nele):
+                for ele2 in range(nele):
                     goal_prob_mat[:, ele1, ele2] = goal_conc_list[ele1] * goal_conc_list[ele2]
             
             self.goal_prob_mat = goal_prob_mat
 
         elif metric_method == "std_prob":
             # the goal probability matrix
-            goal_prob_mat = np.tile(self.comp_atom_list/self.natom, self.max_neigh*ntype_ele).reshape(self.max_neigh, ntype_ele, ntype_ele)
+            goal_prob_mat = np.tile(self.comp_atom_list/self.natom, self.max_neigh*nele).reshape(self.max_neigh, nele, nele)
 
         return goal_prob_mat
 
@@ -268,8 +270,8 @@ class wcRandSol:
         # number of neighboring shells considered
         max_neigh = self.max_neigh
 
-        ntype_ele = len(np.unique(occup_array))
-        cross_prob_mat = np.zeros((max_neigh, ntype_ele, ntype_ele))
+        nele = len(np.unique(occup_array))
+        cross_prob_mat = np.zeros((max_neigh, nele, nele))
 
         # cross probability method: to calculate the crossed probability from finding all A-B pairs among all pairs 
         for nst_neigh_level in range(max_neigh):
@@ -284,8 +286,8 @@ class wcRandSol:
             # we are indeed estimating how many A-A, B-B, C-C, ... pairs among all the nPairs
             nPairs = len(pairI)
 
-            for ele1 in range(ntype_ele):
-                for ele2 in range(ntype_ele):
+            for ele1 in range(nele):
+                for ele2 in range(nele):
                     # elePairCorr is an 1D array, each element indicate whether this level nearst neighbor pair are all this type of element
                     # the Pair Correlation result for each element is how many N type element pairs exist in all M pairs in the 1st nearst neighbor pairs
                     # array([1, 0, 1])*array([0, 1, 1]) = array([0, 0, 1]), thus we can use to determine how many atoms within the same ele in current shell
@@ -318,25 +320,25 @@ class wcRandSol:
             atomic_neigh_mat: the neighboring atoms counts of each atom at each neighboring shell.
         '''
 
-        # a function to give the percentage of ntype_ele element in a list
+        # a function to give the percentage of nele element in a list
         # using functions in numpy, be careful! This function will run billion time!
         def get_percentage(array,
-                        ntype_ele):
+                        nele):
             types, counts = np.unique(array, return_counts=True)
-            if len(types) == ntype_ele:
+            if len(types) == nele:
                 return counts
             else:
-                output = np.zeros(ntype_ele, dtype=int)
+                output = np.zeros(nele, dtype=int)
                 # Fill the concentrations based on the input types for those with 0% concentration
                 for t, c in zip(types, counts):
                     output[t-1] = c
                 return output
 
         # number of types of elements
-        ntype_ele = len(self.comp_atom_list)
+        nele = len(self.comp_atom_list)
 
         # shape would be (max_neigh, natoms, ncomp) for the composition around each atom
-        atomic_neigh_mat = np.zeros((self.max_neigh, self.natom, ntype_ele))
+        atomic_neigh_mat = np.zeros((self.max_neigh, self.natom, nele))
 
         # loop for different nearst neighbor pairs
         for nst_neigh_level in range(self.max_neigh):
@@ -367,7 +369,7 @@ class wcRandSol:
                 tmp_neigh_atom_list = occup_array[tmp_neigh_atom_list_index]
 
                 atomic_neigh_mat[nst_neigh_level, atom_num] = get_percentage(array=tmp_neigh_atom_list, 
-                                                    ntype_ele=ntype_ele)
+                                                    nele=nele)
             
         return atomic_neigh_mat
     
@@ -379,7 +381,7 @@ class wcRandSol:
         Parameters:
             occup_array: occupation array, the occupation array for all atoms
         Return:
-            prob_mat: the ele1-ele2 paired probability matrix for each neighbor shell. shape is (max_neigh, ntype_ele, ntype_ele)
+            prob_mat: the ele1-ele2 paired probability matrix for each neighbor shell. shape is (max_neigh, nele, nele)
         '''
         # firstly get the atomic neighbor matrix
         atomic_neigh_mat = self.generate_atomic_neigh_mat(occup_array)
@@ -407,7 +409,7 @@ class wcRandSol:
 
     def compute_metric(self,
                        occup_array: np.ndarray,
-                       metric_method: str = "cross_prob",
+                       metric_method: str = None,
                        ):
         '''
         Three types of metric_method, cross_prob, atomic_diff and std_prob.
@@ -429,7 +431,11 @@ class wcRandSol:
         '''
 
         # number of types of elements
-        ntype_ele = len(self.comp_atom_list)
+        nele = len(self.comp_atom_list)
+
+        # the metric method is not specified, use the one stored in this class
+        if  metric_method is None:
+            metric_method = self.metric_method
 
         if metric_method == "cross_prob":
 
@@ -454,7 +460,7 @@ class wcRandSol:
             atomic_neigh_mat = np.array(atomic_neigh_mat, dtype=float) / np.sum(atomic_neigh_mat[0][0])
 
             # the atom-wise goal probability matrix
-            goal_atomic_neigh_mat = np.tile(self.comp_atom_list/self.natom, self.max_neigh*self.natom).reshape(self.max_neigh, self.natom, ntype_ele)
+            goal_atomic_neigh_mat = np.tile(self.comp_atom_list/self.natom, self.max_neigh*self.natom).reshape(self.max_neigh, self.natom, nele)
 
             # the diff_values between the current atomic probability matrix and the goal atomic probability matrix
             diff_values = np.abs(atomic_neigh_mat - goal_atomic_neigh_mat).mean(axis=1)
@@ -467,7 +473,7 @@ class wcRandSol:
             current_prob_mat = self.compute_std_prob_mat(occup_array)
 
             # the goal probability matrix
-            goal_prob_mat = np.tile(self.comp_atom_list/self.natom, self.max_neigh*ntype_ele).reshape(self.max_neigh, ntype_ele, ntype_ele)
+            goal_prob_mat = np.tile(self.comp_atom_list/self.natom, self.max_neigh*nele).reshape(self.max_neigh, nele, nele)
 
             # the diff_values between the current probability matrix and the goal probability matrix
             diff_values = np.abs(current_prob_mat - goal_prob_mat).mean(axis=1)
@@ -480,177 +486,141 @@ class wcRandSol:
 
 
     def run(self,
-            maxIteration: int = 1000,
+            max_iter: int = 1000,
+            output_file: str = "matmec.out",
             verbose: bool = True):
         '''
         Start the iteration for generating wcRandSol geometry, final wcRandSol geometry will be stored at self.final_latt.
         A convergence cretiria between 1E-5 and 1E-6 is recommanded.
         Parameters:
-            maxIteration: the max iteration program will perform.
+            max_iter: the max iteration program will perform.
         '''
         # BUG BUG BUG Bring in the atoms swap method next time.
 
-        # generate the neighbor matrix if its currently not here
-        if not hasattr(self, "neigh_level_mat"):
-            self._get_neighbor_matrix()
+        # define the output file
+        if isinstance(output_file, str):
+            if output_file in ["screen", "Screen", "SCREEN", "sc"]:
+                f = None
+            else:
+                f = open(output_file, 'w')
 
-        self.converge = False
+        # get the goal probability matrix
+        goal_prob_mat = self.compute_goal_prob_mat()
 
-        if verbose:
-            print()
-            print("Starting iteration for the beset wcRandSol")
-            print()
+        # get the element list
+        ele_label_list = list(self.comp_atom_dict.keys())
+        nele = len(ele_label_list)
 
-        # define some helper function
-        def get_ave_corr(cross_prob_mat):
-            return np.mean(cross_prob_mat, axis=0)
+        # initialize the empty best_dict
+        best_dict = {}
 
-        def get_delta_corr(cross_prob_mat):
-            return np.mean((cross_prob_mat-goal_cross_prob_mat)**2, axis=0)
-        
+        def define_best_dict(occup_array, metric_value, step):
+            best_dict['occup_array'] = occup_array
+            best_dict['metric_value'] = metric_value
+            best_dict['step'] = step
+            return best_dict
+
         def generate_sqs_latt(latt, occup_array, sublat_indice, elementTypes):
             # generate the substitution elements list
             new_ele_list = np.array(latt.elements)
             sub_ele_list = []
             for i in range(self.natom):
                 sub_ele = elementTypes[int(occup_array[i]-1)]
-                sub_ele_list.append(sub_ele)
+                sub_ele_list.append(sub_ele)    
             new_ele_list[sublat_indice] = sub_ele_list
 
             latt.elements = new_ele_list
             return new_ele_list
 
-        def generate_best_sqs_dict(step, dcorr_sum, occup_array, cross_prob_mat, dcorr_list):
-            best_sqs_dict = {}
-            best_sqs_dict["step"] = step
-            best_sqs_dict["dcorr_sum"] = dcorr_sum
-            best_sqs_dict["occup_array"] = occup_array
-            best_sqs_dict["cross_prob_mat"] = cross_prob_mat
-            best_sqs_dict["dcorr_list"] = dcorr_list
-            return best_sqs_dict
-
-        # generate the reference corr mat
-        goal_cross_prob_mat = self._compute_goal_prob_mat()
-
-        # initialize the best_sqs_dict, if found a better sqs, will store in best_sqs_dict
-        # will store all the information in a dictionary best_sqs_dict
-        best_sqs_dict = {}
-
-        init_occup_array = self._generate_random_occupation(self.comp_atom_list)
-        init_cross_prob_mat = self._compute_cross_prob_mat(init_occup_array)
-        ave_dcorr_list =  get_delta_corr(init_cross_prob_mat)
-        dcorr_sum = ave_dcorr_list.sum()    
-
-        best_sqs_dict = generate_best_sqs_dict(step=0, 
-                                               dcorr_sum=dcorr_sum, 
-                                               occup_array=init_occup_array, 
-                                               cross_prob_mat=init_cross_prob_mat, 
-                                               dcorr_list=ave_dcorr_list)
+        # initialize the best structure dictionary
+        best_dict = define_best_dict(None, [1E10]*self.max_neigh, -1)
 
         if verbose:
-            ref_corr_string = ', '.join([f'{i:12.6e}' for i in goal_cross_prob_mat[:, 0]])
-            print(f"Targeting reference pair correlation: {ref_corr_string}")
+            # print the target probability matrix for each neighbor shell
+            for nst_neigh_level in range(self.max_neigh):
+                print(f'\nGoal probability for neighbor shell {nst_neigh_level}:', file=f)
+                print('\t' + '\t'.join(ele_label_list), file=f)
+                for ele in range(nele):
+                    print(ele_label_list[ele] + '\t' + '\t'.join([f'{i:0.4f}' for i in goal_prob_mat[nst_neigh_level, ele]]), file=f)
 
-            conv_thr_string = ', '.join([f'{i:12.6e}' for i in self.conv_thr])
-            print(f'AveDCorr convergence criteria : {conv_thr_string}')
+            conv_thr_string = ', '.join([f'{i:6.3e}' for i in self.conv_thr])
+            print(f'\nObjective function convergence criteria (Metric: {self.metric_method}): {conv_thr_string}', file=f)
 
-        iterationNum = -1
+        iter_num = -1
 
         if verbose:
-            AveCorr_title = '    |    '.join([f'AveCorr.{str(m+1)}' for m in range(self.max_neigh)])
-            AveDCorr_title = '    |    '.join([f'AveDCorr.{str(m+1)}' for m in range(self.max_neigh)])
-            print()
-            print(f'        step   |    {AveCorr_title}    |    {AveDCorr_title}')
+            print('\n------------------------START ITERATION------------------------', file=f)
+            obj_title = '\t|\t'.join([f'Neigh_shell.{str(m+1)}' for m in range(self.max_neigh)])
+            print(f'\tstep\t|\t{obj_title}', file=f)
 
-        while iterationNum < maxIteration:
+        converge = False
+
+        # main loop
+        while iter_num < max_iter:
             '''
             Two ways to end the iteration
             1): the max iteration reached, then the structure with smallest delta corr will be regarded as final structure
             2): the iteration converged, the structure with delta corr below the threshold found
             '''
-            iterationNum += 1
-            
+            iter_num += 1
+
             # generate one random structure
-            tmp_occup_array = self._generate_random_occupation(self.comp_atom_list)
+            tmp_occup_array = self.generate_random_occupation()
 
-            # compute the pair correlation
-            tmp_cross_prob_mat = self._compute_cross_prob_mat(tmp_occup_array)
-            ave_corr_list = get_ave_corr(tmp_cross_prob_mat)
-            
-            # compute the difference of the curren cross_prob_mat and refrence cross_prob_mat
-            ave_dcorr_list = get_delta_corr(tmp_cross_prob_mat)
-            dcorr_sum = ave_dcorr_list.sum()
+            # compute the obejective function value
+            tmp_metric_value = self.compute_metric(tmp_occup_array)
 
+            # print the metric value
             if verbose:
-                meanAveCorr_str = '  |  '.join([ f'{corr: 12.6e}' for corr in ave_corr_list])
-                meanAveDcorr_str = '   |  '.join([ f'{dcorr: 12.6e}' for dcorr in ave_dcorr_list])
-                print(f'    {iterationNum:8d}   |  {meanAveCorr_str}  |  {meanAveDcorr_str}',end='')
-
+                tmp_metric_value_string = '\t|\t'.join([f'   {m: 0.4f}' for m in tmp_metric_value])
+                print(f'\t{iter_num}\t|\t{tmp_metric_value_string}', file=f)
+            
             # if converged, iteration finish
-            if np.all(ave_dcorr_list <= self.conv_thr):
-
-                # final_latt is the final structure
-                self.final_latt = deepcopy(self.ori_latt)
-
-                new_ele_list = generate_sqs_latt(latt = self.final_latt, 
-                                                 occup_array = tmp_occup_array, 
-                                                 sublat_indice = self.sublat_indice, 
-                                                 elementTypes = list(self.comp_atom_dict.keys()))
-                self.final_latt.elements = new_ele_list
-
-                # asign self.converge as True   
-                self.converge = True
-
-                if verbose:
-                    print(" <--- Reached required criteria")
+            if np.all(tmp_metric_value <= self.conv_thr):
+                print("Succeed", file=f)
+                converge = True
+                best_dict = define_best_dict(tmp_occup_array, tmp_metric_value, iter_num)
                 break
-
             else:
-                if dcorr_sum < best_sqs_dict["dcorr_sum"]:
-                    # if new configuration has lower dCorr, then substitube the best sqs one
-                    best_sqs_dict = generate_best_sqs_dict(step=iterationNum, 
-                                                           dcorr_sum=dcorr_sum, 
-                                                           occup_array=tmp_occup_array, 
-                                                           cross_prob_mat=tmp_cross_prob_mat, 
-                                                           dcorr_list=ave_dcorr_list)
-                if verbose:
-                    print()
-            
-        if self.converge:
-            if verbose:
-                print()
-                print(f'***Iteration converged at step {iterationNum}')
+                # if not converged, compare with the best structure
+                if sum(tmp_metric_value) < sum(best_dict['metric_value']):
+                    best_dict = define_best_dict(tmp_occup_array, tmp_metric_value, iter_num)
 
-                print(f"***Final average correlation and average delta up to {self.max_neigh} neighbor levels:")
-                print(f'        step   |    {AveCorr_title}    |    {AveDCorr_title}')
-                print(f'    {iterationNum:8d}   |  {meanAveCorr_str}  |  {meanAveDcorr_str}',end='')
-
-                print()
-                print(f'***Final SQS geometry stored at final_latt')
-                print()
+        # print the convergence information
+        print(f'\n------------------------END ITERATION------------------------', file=f)
+        if converge:
+            print(f'\nConverged after {iter_num} iterations.', file=f)
         else:
-            # if not converged, will output the currently the best one
-            if verbose:
-                print()
-                print(f'***ATTENTION! Iteration not converged, the best one at step {best_sqs_dict["step"]} (total {maxIteration} steps) will be used')
+            print(f'\nMax iteration reached ({max_iter}).', file=f)
+            print(f'***ATTENTION, iteration not converged.***', file=f)
 
-                print(f'        step   |    {AveCorr_title}    |    {AveDCorr_title}')
-                meanAveDcorr_str = '   |  '.join([ f'{dcorr: 12.6e}' for dcorr in best_sqs_dict["dcorr_list"]])
-                ave_corr_list = get_ave_corr(best_sqs_dict["cross_prob_mat"])
-                meanAveCorr_str = '  |  '.join([ f'{corr: 12.6e}' for corr in ave_corr_list])
-                print(f'    {best_sqs_dict["step"]:8d}   |  {meanAveCorr_str}  |  {meanAveDcorr_str}',end='\n')
+        print(f'\nBest structure found at step {best_dict["step"]}, average metric value: {sum(best_dict["metric_value"])/self.max_neigh:0.4f}', file=f)
 
-                print(f'***All information about the best_sqs_dict is stored at best_sqs_dict')
-                print()
-                print(f'***Final SQS geometry stored at final_latt')
-                print()
+        # calculate the final probability matrix
+        if self.metric_method == 'std_prob':
+            final_prob_mat = self.compute_std_prob_mat(best_dict['occup_array'])
+        elif self.metric_method == 'cross_prob':
+            final_prob_mat = self.compute_cross_prob_mat(best_dict['occup_array'])
 
-            # store the best_sqs_dict, and generate the final final_latt
-            self.best_sqs_dict = best_sqs_dict
-            self.final_latt = deepcopy(self.ori_latt)
+        # print the final probability matrix
+        for nst_neigh_level in range(self.max_neigh):
+            print(f'\nProbability for neighbor shell {nst_neigh_level} (Metric: {self.metric_method}):', file=f)
+            print('\t' + '\t'.join(ele_label_list), file=f)
+            for ele in range(nele):
+                print(ele_label_list[ele] + '\t' + '\t'.join([f'{i:0.4f}' for i in final_prob_mat[nst_neigh_level, ele]]), file=f)
 
-            new_ele_list = generate_sqs_latt(latt = self.final_latt, 
-                                             occup_array = best_sqs_dict["occup_array"], 
-                                             sublat_indice = self.sublat_indice, 
-                                             elementTypes = list(self.comp_atom_dict.keys()))            
-            self.final_latt.elements = new_ele_list
+        # generate and save the final structure as final_latt
+        self.best_dict = best_dict
+        from copy import deepcopy
+        self.final_latt = deepcopy(self.ori_latt)
+
+        new_ele_list = generate_sqs_latt(latt = self.final_latt, 
+                                        occup_array = best_dict["occup_array"], 
+                                        sublat_indice = self.sublat_indice, 
+                                        elementTypes = list(self.comp_atom_dict.keys()))
+
+        self.final_latt.elements = new_ele_list 
+
+        # close the output file
+        if isinstance(output_file, str) and output_file not in ["screen", "Screen", "SCREEN", "sc"]:
+            f.close()
