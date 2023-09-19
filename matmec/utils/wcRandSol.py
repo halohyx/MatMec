@@ -503,6 +503,10 @@ class wcRandSol:
                 f = None
             else:
                 f = open(output_file, 'w')
+        
+        # get the neighbor matrix
+        if not hasattr(self, "neigh_level_mat"):
+            self._get_neighbor_matrix()
 
         # get the goal probability matrix
         goal_prob_mat = self.compute_goal_prob_mat()
