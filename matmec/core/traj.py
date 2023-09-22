@@ -1,5 +1,4 @@
 import copy
-from matmec.utils import reader, writer
 from matmec.core import Latt, Cell
 from matmec.core.slab import abcvector
 from matmec.tool.latt_tool import periodic_table, get_elements_list_from_poscarString, \

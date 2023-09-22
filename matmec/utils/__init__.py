@@ -1,7 +1,5 @@
 import functools
 from pathlib import PurePath
-import numpy as np
-from matmec.core import Cell
 
 from .wcRandSol import wcRandSol
 
