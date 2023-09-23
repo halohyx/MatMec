@@ -300,7 +300,7 @@ class wcRandSol:
         
         return cross_prob_mat
 
-    def generate_atomic_neigh_mat(self,
+    def generate_typenum_neigh_mat(self,
                                 occup_array):
         '''
         Compute the atomic neighbor matrix in the format of (assume we have 3 types of elements)):
@@ -384,7 +384,7 @@ class wcRandSol:
             prob_mat: the ele1-ele2 paired probability matrix for each neighbor shell. shape is (max_neigh, nele, nele)
         '''
         # firstly get the atomic neighbor matrix
-        atomic_neigh_mat = self.generate_atomic_neigh_mat(occup_array)
+        atomic_neigh_mat = self.generate_typenum_neigh_mat(occup_array)
 
         # define an empty probability matrix
         std_prob_mat = np.zeros((self.max_neigh, len(self.comp_atom_list), len(self.comp_atom_list)))
@@ -454,7 +454,7 @@ class wcRandSol:
 
         elif metric_method == "atomic_diff":
             # the atom-wise probability matrix 
-            atomic_neigh_mat = self.generate_atomic_neigh_mat(occup_array)
+            atomic_neigh_mat = self.generate_typenum_neigh_mat(occup_array)
 
             # the atom-wise probability matrix
             atomic_neigh_mat = np.array(atomic_neigh_mat, dtype=float) / np.sum(atomic_neigh_mat[0][0])

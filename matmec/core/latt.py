@@ -713,6 +713,7 @@ class Latt:
                           memory_save = True,
                           cutoff_radius = 8,
                           dis_mat_method = "translational",
+                          distance_threshold = 0.05,
                           verbose = True):
         '''
         Return the neighbor list of current system.
@@ -724,6 +725,7 @@ class Latt:
             dis_mat_method : the method used for generating the distance matrix, can be translational or direct
                     translational is the most robust while direct is way faster. But direct would be 
                     problematic in tilted cell.
+            distance_threshold: default: 0.05, the threshold to judge whether two atoms are in the same nearest neighbor shell
             verbose: default: True, whether to output the information in a verbose way.
         Returns:
             neigh_level_mat: the neighboring level matrix, 
@@ -802,7 +804,20 @@ class Latt:
         max_n = max_neigh + 1
 
         # all the type of distances in the system. Use this to judge which nearest neighbor shell the atom pairs belong to
-        distances = np.unique(dis_mat.ravel())[:max_n]
+        distance_threshold = 0.05
+
+        untreated_distances = np.unique(dis_mat.ravel())
+
+        distances = []
+
+        i = 0
+        while i < len(untreated_distances) - 2:
+            if untreated_distances[i+1] - untreated_distances[i] <= distance_threshold:
+                distances.append(untreated_distances[i+1])
+                i += 2
+            else:
+                distances.append(untreated_distances[i])
+                i += 1
         if len(distances)<max_n: max_n=len(distances)
 
         # two methods, one for memory saving, one for convinience
