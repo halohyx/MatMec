@@ -544,6 +544,7 @@ class Latt:
         return self.__direct__
     def set_direct(self, isDirect: bool =True):
         assert(isinstance(isDirect, bool)), 'The isDirect should be of bool type'
+        self._update_atom_propdict("poslist")
         if self.cell:
             transferNeed = self.__direct__ == isDirect
             if not transferNeed:
@@ -753,7 +754,9 @@ class Latt:
             # iatoms will be like [0, 0, 0, 1, 1, 1, 1], seperators will be like [0, 3, 7] to seperate the iatoms and jatoms
             seperators = [0]
             flag = 1
-            largest_neigh_num = -1E100 # for later creating a regular shape of neigh_index_mat and neigh_dis_mat
+            # for later creating a regular shape of neigh_index_mat and neigh_dis_mat
+            # this is the overall maximum number of neighbors for all the atoms
+            largest_neigh_num = -1E100 
 
             for i in range(len(iatoms)):
                 if iatoms[i] == flag:
@@ -784,10 +787,10 @@ class Latt:
 
                 # %Notice that the shape of neigh_index_mat maybe irregular, as different atomic site may have different number of neighbors
                 # complement if the number of neighbors is not the same for all sites.
-                if num_of_neigh < max_neigh:
-                    Warning.warn("Number of neighbors for atoms is not same for all sites, we will fill the empty space with None")
-                    tmp_neigh_index_list = np.concatenate((tmp_neigh_index_list, np.array([-1]*(max_neigh-num_of_neigh))))
-                    tmp_neigh_dis_list = np.concatenate((tmp_neigh_dis_list, np.array([-1]*(max_neigh-num_of_neigh))))
+                if num_of_neigh < largest_neigh_num:
+                    Warning("Number of neighbors for atoms is not same for all sites, we will fill the empty space with None")
+                    tmp_neigh_index_list = np.concatenate((tmp_neigh_index_list, np.array([-1]*(largest_neigh_num-num_of_neigh))))
+                    tmp_neigh_dis_list = np.concatenate((tmp_neigh_dis_list, np.array([-1]*(largest_neigh_num-num_of_neigh))))
 
                 # add the tmp_neigh_index_list and tmp_neigh_dis_list to neigh_index_mat and neigh_dis_mat
                 neigh_dis_mat.append(tmp_neigh_dis_list)
@@ -1148,7 +1151,7 @@ class Latt:
         if tilt_axis not in [0, 1, 2] or toward_axis not in [0, 1, 2]:
             raise ValueError('tilt_axis and toward_axis should be 0, 1, 2, indicating the 3 lattice vectors')
         else:
-            self.set_direct(True)
+            # self.set_direct(True)
             if relax:
                 self.set_mobility([True, True, True])
             else:

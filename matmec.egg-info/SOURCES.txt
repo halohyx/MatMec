@@ -1,0 +1,7 @@
+README.md
+setup.py
+matmec.egg-info/PKG-INFO
+matmec.egg-info/SOURCES.txt
+matmec.egg-info/dependency_links.txt
+matmec.egg-info/requires.txt
+matmec.egg-info/top_level.txt
