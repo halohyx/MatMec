@@ -814,13 +814,16 @@ class Latt:
         distances = []
 
         i = 0
-        while i < len(untreated_distances) - 2:
+        while i < len(untreated_distances) - 1:
             if untreated_distances[i+1] - untreated_distances[i] <= distance_threshold:
                 distances.append(untreated_distances[i+1])
                 i += 2
             else:
                 distances.append(untreated_distances[i])
                 i += 1
+        if not untreated_distances[-1] - distances[-1] <= distance_threshold:
+            distances.append(untreated_distances[-1])
+
         if len(distances)<max_n: max_n=len(distances)
 
         # two methods, one for memory saving, one for convinience
