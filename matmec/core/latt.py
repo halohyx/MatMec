@@ -247,7 +247,7 @@ class Latt:
                     pos = None,
                     pos_type = 'direct',
                     pos_threshold = 0.1,
-                    verbose = True):
+                    verbose = False):
         '''
         Delete the atom specified.
         Two ways to specify the deleted atoms, atom_index will be of priority:
