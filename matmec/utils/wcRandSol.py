@@ -344,7 +344,7 @@ class wcRandSol:
 
         # loop for different nearst neighbor pairs
         for nst_neigh_level in range(self.max_neigh):
-            print(self.neigh_level_mat)
+            
             # BUG notice that the pairI, pairJ, seperators for each neighboring shell are always the same during the iteration
             # In the future, we can do some optimization on this part to save time.
             pairI, pairJ_index = ( self.neigh_level_mat == nst_neigh_level+1 ).nonzero()
@@ -367,7 +367,7 @@ class wcRandSol:
 
             for atom_num in range(self.natom):
                 tmp_neigh_atom_list_index = pairJ[seperators[atom_num]:seperators[atom_num+1]]
-                print(tmp_neigh_atom_list_index)
+                
                 tmp_neigh_atom_list = occup_array[tmp_neigh_atom_list_index]
 
                 atomic_neigh_mat[nst_neigh_level, atom_num] = get_percentage(array=tmp_neigh_atom_list, 

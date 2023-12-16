@@ -172,15 +172,14 @@ class Latt:
             isformula, formula_dict = check_formula(formula)
             if isformula:
                 # elements_list = get_elements_list_fromformula(formula=formula)
-                self.addatom(formula, pos, self.__direct__, fix, velocity)
+                self.add_atom(formula, pos, self.__direct__, fix, velocity)
             else:
                 raise ValueError('The implemented formula doesnt has correct form')
         elif isinstance(formula, (tuple, list, np.ndarray)):
             # if implemented a list of atoms, just add them
-            self.addatom(formula, pos, self.__direct__, fix, velocity)
+            self.add_atom(formula, pos, self.__direct__, fix, velocity)
 
-
-    def addatom(self, element: str, pos=[0., 0., 0.], isDirect: bool=True, \
+    def add_atom(self, element: str, pos=[0., 0., 0.], isDirect: bool=True, \
                 fix: bool =[True, True, True], velocity=[0., 0., 0.]):
         '''
         Several situations in providing input:
@@ -232,16 +231,82 @@ class Latt:
                                 fix=fix[i], velocity=velocity[i])
                     created_atoms.append(atom)
                     del atom
-                self.addatom(created_atoms)
+                self.add_atom(created_atoms)
             # no other form supported
             else:
                 raise ValueError('The first offered parameter should be one or list of Atom or str type, pls check the form!')
         # a single string object is given as element, will use the number of offered pos to created atoms
         elif isinstance(element, str):
             element = get_elements_list_fromformula(element)
-            self.addatom(element, pos, isDirect, fix, velocity)
+            self.add_atom(element, pos, isDirect, fix, velocity)
         else:
             raise ValueError('Pls provide correct type of input.')
+    
+    def delete_atom(self, 
+                    atom_index = None, 
+                    pos = None,
+                    pos_type = 'direct',
+                    pos_threshold = 0.1,
+                    verbose = True):
+        '''
+        Delete the atom specified.
+        Two ways to specify the deleted atoms, atom_index will be of priority:
+        1. specify the atom_index. The self.atomlist[atom_index-1] will be deleted
+        2. specify the position of the atom, the atom close to the specified pos 
+           with the pos_threshold will be deleted.
+        Parameters:
+            atom_index: the index of the atom to be deleted
+            pos: the position of the atom to be deleted
+            pos_type: the type of the pos, can be direct or cartesian
+            pos_threshold: the threshold to determine which atom is close to the specified pos
+            verbose: whether to output the information in a verbose way
+        Return:
+            1: if the atom is deleted successfully
+            0: if the atom_index and pos are both not specified
+        '''
+        if verbose:
+            print("Deleting atom...")
+
+        if atom_index is not None:
+            if verbose:
+                print(f'Deleting atom by atom_index, specified atom_index {atom_index}')
+            self.atomlist = np.delete(self.atomlist, atom_index-1)
+
+            if verbose:
+                print("Done deleting atom!")
+
+            return 1
+
+        if pos is not None:
+            # convert the pos to cartesian coordinate
+            if pos_type[0] in ["C", "c"]:
+                pass
+            elif pos_type[0] in ["D", "d"]:
+                pos = self.cell.get_cartesian_coords(pos)
+
+            # get the poslist of current system in cartesian coordinate
+            if self.get_direct():
+                poslist = self.cell.get_cartesian_coords(self.poslist)
+            else:
+                poslist = deepcopy(self.cell.poslist)
+            
+            # find the atom close to the specified pos, and delete it from atomlist
+            match_mask = (np.abs(poslist - pos) <= pos_threshold ).all(axis = 1)
+            if verbose:
+                print(f'Deleting atom by pos, specified pos in cardisian coordinate {pos}')
+                print(f'Found {np.sum(match_mask)} atoms close to the specified pos')
+            self.atomlist = np.delete(self.atomlist, np.where(match_mask)[0])
+
+            if np.max(np.abs(pos)) <= 1 and not self.get_direct():
+                print("Confirm your input, now the latt is within Cartesian coordinate. But you may have input a fractional coordinate.")
+            
+            if verbose:
+                print("Done deleting atom!")
+
+            return 1
+
+        return 0
+
 
     def __add_single_atom(self, atom):
         pass
@@ -717,8 +782,8 @@ class Latt:
                           distance_threshold = 0.05,
                           verbose = True):
         '''
-        Return the neighbor list of current system.
-        % should add the cutoff to save the memory
+        Return the neighbor list of current system.\n
+        % should add the cutoff to save the memory\n
         Parameters:
             max_neigh: default: 3, define which the max nearest neighbor shell
             memory_save: default: True, whether to save the memory by only storing the neighbor atoms within the cutoff radius
@@ -921,14 +986,14 @@ class Latt:
                          tempvelocity= np.array(line.strip().split()[:3], dtype=float)
                          velocitylist = np.append(velocitylist, tempvelocity)
                          del tempvelocity
-                # after the loop of the file, addatoms to the poscar
+                # after the loop of the file, add_atom to the poscar
                 poslist = poslist.reshape(-1, 3)
 
                 fixlist = fixlist.reshape(-1, 3)
                 velocitylist = velocitylist.reshape(-1, 3)
                 if len(velocitylist) != len(poslist):
                     velocitylist = [0., 0., 0.]
-                poscar.addatom(elementList, poslist, poscar.get_direct(), fixlist, velocitylist)
+                poscar.add_atom(elementList, poslist, poscar.get_direct(), fixlist, velocitylist)
                 # set poscar to current latt
                 poscar.isSelectiveDynamic = isSelectiveDynamic
                 poscar.wrap()
