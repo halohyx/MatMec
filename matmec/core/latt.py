@@ -87,7 +87,7 @@ class Atomlist:
         2. give the slices like a numpy array
         3. give the bool mask
         '''
-        if isinstance(idx, (list, np.ndarray)) and idx != []:
+        if isinstance(idx, (list, np.ndarray)) and len(idx) != 0:
             if isinstance(idx[0], str):
                 mask = [ i.element in idx for i in self.atomlist]
                 return self.atomlist[mask]
@@ -996,7 +996,7 @@ class Latt:
                 poscar.add_atom(elementList, poslist, poscar.get_direct(), fixlist, velocitylist)
                 # set poscar to current latt
                 poscar.isSelectiveDynamic = isSelectiveDynamic
-                poscar.wrap()
+                # poscar.wrap()
                 return poscar
         else:
             raise ValueError('Please ensure the validity of file path.')

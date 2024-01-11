@@ -2122,5 +2122,9 @@
     "BoilingPoint": "None",
     "SpecificHeat": "None",
     "NumberofValence": 8.0
+  },
+  "Va": {
+    "AtomicNumber": 1000,
+    "Element": "Vacancy"
   }
 }
