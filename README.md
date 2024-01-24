@@ -1,5 +1,4 @@
 # MatMec
-Yixuan's first attempt to build a package.
 
 **MatMec** is a package for easily manipulating atoms for mechanics calculation in computational matirial science. Currently, only VASP form input and output are supported,
 you can read and write POSCAR type file by using **read_from_poscar** and **write_to_poscar**.
